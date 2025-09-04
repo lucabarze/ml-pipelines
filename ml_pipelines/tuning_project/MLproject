@@ -1,0 +1,27 @@
+# MLproject
+name: FineTuningAMD
+
+docker_env:
+  image: core.harbor.apps.eni.lajoie.de/suseai/fine-tuning-amd:v0.0.1
+
+entry_points:
+  main:
+    parameters:
+      # Nuovi parametri con valori di default
+      model_name: {type: string, default: "mistralai/Mistral-7B-Instruct-v0.2"}
+      mlflow_uri: {type: string, default: "http://mlflow.mlflow.svc.cluster.local"}
+      
+      # Parametri precedenti
+      data_path: {type: string, default: "dataset.jsonl"}
+      learning_rate: {type: float, default: 0.0002}
+      epochs: {type: int, default: 3}
+
+    # Aggiungiamo i nuovi parametri al comando
+    command: >-
+      python fine_tuning_amd_parametrized.py
+      --model_name {model_name}
+      --mlflow_uri {mlflow_uri}
+      --data_path {data_path}
+      --lr {learning_rate}
+      --epochs {epochs}
+
