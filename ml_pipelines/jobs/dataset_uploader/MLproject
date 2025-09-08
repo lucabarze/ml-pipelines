@@ -1,0 +1,14 @@
+name: DatasetUploader
+docker_env:
+  image: core.harbor.apps.eni.lajoie.de/suseai/eni-golden-image:v0.0.1
+entry_points:
+  main:
+    parameters:
+      mlflow_uri: {type: string, default: "http://mlflow.apps.eni.lajoie.de"}
+      experiment: {type: string, default: "Datasets"}
+      local_file: {type: string, default: "dataset.jsonl"}
+    command: >-
+      python src/upload_dataset_latest.py
+      --mlflow_uri {mlflow_uri}
+      --experiment {experiment}
+      --local_file {local_file}

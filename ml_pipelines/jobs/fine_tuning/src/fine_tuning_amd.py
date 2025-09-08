@@ -10,15 +10,52 @@ from transformers import (
 )
 from peft import LoraConfig
 from trl import SFTTrainer
+from pathlib import Path
+import tempfile
+from mlflow.artifacts import download_artifacts
+import pandas as pd 
+
+def _resolve_dataset_path(args) -> str:
+    """
+    Ritorna un path locale pronto per load_dataset.
+    Regole:
+    - se data_uri è 'latest:<EXP>', prende la run con tag latest=true su <EXP>
+    - se data_uri inizia con runs:/, mlflow-artifacts:/ o s3://, scarica/risolve
+    - altrimenti usa data_path locale
+    """
+    if args.data_uri:
+        mlflow.set_tracking_uri(args.mlflow_uri)
+        if args.data_uri.startswith("latest:"):
+            exp_name = args.data_uri.split("latest:", 1)[1]
+            exp = mlflow.get_experiment_by_name(exp_name)
+            assert exp, f"Esperimento '{exp_name}' inesistente"
+            df = mlflow.search_runs(
+                [exp.experiment_id],
+                filter_string="tags.latest = 'true'",
+                order_by=["start_time DESC"],
+                max_results=1
+            )
+            assert len(df), f"Nessuna run con latest=true in '{exp_name}'"
+            run_id = df.iloc[0]["run_id"]
+            uri = f"runs:/{run_id}/datasets/dataset.jsonl"
+            return download_artifacts(uri, dst_path=tempfile.mkdtemp(prefix="ds_"))
+        if args.data_uri.startswith(("runs:/", "mlflow-artifacts:/", "s3://", "http://", "https://")):
+            return download_artifacts(args.data_uri, dst_path=tempfile.mkdtemp(prefix="ds_"))
+        # fallback: trattalo come file locale
+        return args.data_uri
+    # nessuna data_uri: usa data_path locale (comportamento attuale)
+    return args.data_path
+
+
 
 OUTPUT_DIR = "/app/results"
+out_dir = Path(OUTPUT_DIR) / "final-adapter"
 
 def main(args):
     print(f"--- Avvio del job di fine-tuning su GPU AMD (ROCm) ---")
     print(f"Modello di partenza: {args.model_name}")
     print(f"Server MLflow: {args.mlflow_uri}")
 
-    # --- Setup di MLflow usando il parametro ---
     mlflow.set_tracking_uri(args.mlflow_uri)
     mlflow.set_experiment("Fine-Tuning Chatbot AMD")
 
@@ -29,13 +66,13 @@ def main(args):
         mlflow.log_param("epochs", args.epochs)
         mlflow.log_param("data_path", args.data_path)
 
-        # --- Caricamento Dataset ---
-        dataset = load_dataset("json", data_files=args.data_path, split="train")
+        ds_local_path = _resolve_dataset_path(args)
+        mlflow.log_param("dataset_source", getattr(args, "data_uri", None) or args.data_path)
+        dataset = load_dataset("json", data_files=ds_local_path, split="train")
 
         def format_prompt(example):
             return f"<s>[INST] {example['domanda']} [/INST] {example['risposta']}</s>"
 
-        # --- Caricamento Modello e Tokenizer usando il parametro ---
         model = AutoModelForCausalLM.from_pretrained(
             args.model_name,
             torch_dtype=torch.bfloat16,
@@ -47,7 +84,6 @@ def main(args):
         tokenizer.pad_token = tokenizer.eos_token
         tokenizer.padding_side = "right"
 
-        # ... (il resto della logica di training rimane identico) ...
         lora_config = LoraConfig(r=8, lora_alpha=16, lora_dropout=0.05, bias="none", task_type="CAUSAL_LM", target_modules=["q_proj", "v_proj"])
         
         training_args = TrainingArguments(
@@ -64,21 +100,25 @@ def main(args):
 
         trainer.train()
         
-        trainer.save_model(os.path.join(OUTPUT_DIR, "final-adapter"))
-        mlflow.log_artifact(local_path=os.path.join(OUTPUT_DIR, "final-adapter"), artifact_path="lora-adapter")
+        trainer.save_model(out_dir.as_posix())
+        mlflow.log_artifacts(local_dir=out_dir.as_posix(), artifact_path="lora-adapter")
+        tokenizer.save_pretrained(out_dir.as_posix())
+        try:
+                mlflow.log_artifact(ds_local_path, artifact_path="input")
+        except Exception:
+                pass
         
         print("--- Job di fine-tuning completato con successo! ---")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    # Aggiungiamo i nuovi argomenti
     parser.add_argument("--model_name", type=str, required=True, help="Nome del modello base da Hugging Face")
     parser.add_argument("--mlflow_uri", type=str, required=True, help="URI del server di tracking MLflow")
-    
-    # Argomenti precedenti
     parser.add_argument("--data_path", type=str, required=True, help="Percorso del file dataset.jsonl")
     parser.add_argument("--lr", type=float, required=True, help="Learning rate per il training")
     parser.add_argument("--epochs", type=int, required=True, help="Numero di epoche di training")
+    parser.add_argument("--data_uri", type=str, required=False,
+                    help="URI dell'artifact (runs:/..., mlflow-artifacts:/..., s3://..., http...) oppure 'latest:Datasets'")
     
     args = parser.parse_args()
     main(args)

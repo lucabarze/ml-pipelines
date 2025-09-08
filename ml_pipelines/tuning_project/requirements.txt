@@ -1,7 +1,0 @@
-mlflow
-transformers
-datasets
-peft
-trl
-accelerate
-scipy

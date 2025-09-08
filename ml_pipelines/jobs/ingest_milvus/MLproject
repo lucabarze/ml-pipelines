@@ -1,0 +1,18 @@
+name: IngestMilvus
+docker_env:
+  image: core.harbor.apps.eni.lajoie.de/suseai/eni-golden-image:v0.0.1
+entry_points:
+  main:
+    parameters:
+      mlflow_uri: {type: string, default: "http://mlflow.apps.eni.lajoie.de"}
+      data_uri:   {type: string, default: "latest:Datasets"}
+      milvus_host:{type: string, default: "milvus.milvus.svc.cluster.local"}
+      milvus_port:{type: string, default: "19530"}
+      collection: {type: string, default: "rag_chunks"}
+    command: >-
+      python src/ingest_milvus.py
+      --mlflow_uri {mlflow_uri}
+      --data_uri {data_uri}
+      --milvus_host {milvus_host}
+      --milvus_port {milvus_port}
+      --collection {collection}
