@@ -87,8 +87,8 @@ vllm:
 
       replicaCount: 1
 
-      requestCPU: 6
-      requestMemory: "16Gi"
+      # requestCPU: 6
+      # requestMemory: "16Gi"
       requestGPU: 0
       # Optional resource limits - if not specified, only GPU will have a limit
       # limitCPU: "8"
