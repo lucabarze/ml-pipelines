@@ -1334,12 +1334,12 @@ milvus:
     tolerations: []
   tolerations: []
 
-
-
-
 # Qdrant Configuration section
+
 qdrant:
-  enabled: true
+  enabled: false
+
+# MlFlow Configuration
 
 mlflow:
   enabled: true
@@ -1572,7 +1572,6 @@ mlflow:
   telemetry:
     enabled: false
   tolerations: []
-
 
 
 
