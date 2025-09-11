@@ -1,0 +1,233 @@
+affinity: {}
+artifactRoot:
+  azureBlob:
+    accessKey: ''
+    connectionString: ''
+    container: ''
+    enabled: false
+    path: ''
+    storageAccount: ''
+  defaultArtifactRoot: ./mlruns
+  defaultArtifactsDestination: ./mlartifacts
+  gcs:
+    bucket: ''
+    enabled: false
+    path: ''
+  proxiedArtifactStorage: true
+  s3:
+    awsAccessKeyId: admin
+    awsSecretAccessKey: admin123
+    bucket: mlflow-artifacts
+    enabled: true
+    existingSecret:
+      keyOfAccessKeyId: ''
+      keyOfSecretAccessKey: ''
+      name: ''
+    path: ''
+auth:
+  adminPassword: ''
+  adminUsername: ''
+  appName: basic-auth
+  authorizationFunction: mlflow.server.auth:authenticate_request_basic_auth
+  configFile: basic_auth.ini
+  configPath: /etc/mlflow/auth/
+  defaultPermission: READ
+  enabled: false
+  existingAdminSecret:
+    name: ''
+    passwordKey: password
+    usernameKey: username
+  postgres:
+    database: ''
+    driver: ''
+    enabled: false
+    existingSecret:
+      name: ''
+      passwordKey: password
+      usernameKey: username
+    host: ''
+    password: ''
+    port: 5432
+    user: ''
+  sqliteFile: basic_auth.db
+  sqliteFullPath: ''
+autoscaling:
+  behavior: {}
+  enabled: false
+  maxReplicas: 5
+  metrics:
+    - resource:
+        name: memory
+        target:
+          averageUtilization: 80
+          type: Utilization
+      type: Resource
+    - resource:
+        name: cpu
+        target:
+          averageUtilization: 80
+          type: Utilization
+      type: Resource
+  minReplicas: 1
+backendStore:
+  databaseConnectionCheck: false
+  databaseMigration: true
+  defaultSqlitePath: ':memory:'
+  existingDatabaseSecret:
+    name: ''
+    passwordKey: password
+    usernameKey: username
+  mysql:
+    database: ''
+    driver: pymysql
+    enabled: false
+    host: ''
+    password: ''
+    port: 3306
+    user: ''
+  postgres:
+    database: mlflow_db
+    driver: ''
+    enabled: true
+    host: postgresql-0-1756932477
+    password: mlflow_password
+    port: 5432
+    user: mlflow_user
+extraArgs: {}
+extraContainers: []
+extraEnvVars:
+  AWS_ACCESS_KEY_ID: admin
+  AWS_SECRET_ACCESS_KEY: admin123
+  MLFLOW_S3_ENDPOINT_URL: http://minio.minio:9000
+  MLFLOW_S3_IGNORE_TLS: 'true'
+extraFlags: []
+extraPodLabels: {}
+extraSecretNamesForEnvFrom: []
+extraVolumeMounts: []
+extraVolumes: []
+flaskServerSecretKey: ''
+fullnameOverride: ''
+image:
+  pullPolicy: IfNotPresent
+  repository: burakince/mlflow
+  tag: ''
+imagePullSecrets: []
+ingress:
+  annotations: {}
+  className: ''
+  enabled: true
+  hosts:
+    - host: mlflow.apps.eni.lajoie.de
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  tls: []
+initContainers: []
+ldapAuth:
+  adminGroupDistinguishedName: ''
+  enabled: false
+  encodedTrustedCACertificate: ''
+  externalSecretForTrustedCACertificate: ''
+  groupAttribute: dn
+  groupAttributeKey: ''
+  lookupBind: ''
+  searchBaseDistinguishedName: ''
+  searchFilter: (&(objectclass=groupOfUniqueNames)(uniquemember=%s))
+  tlsVerification: required
+  uri: ''
+  userGroupDistinguishedName: ''
+livenessProbe:
+  failureThreshold: 5
+  initialDelaySeconds: 10
+  periodSeconds: 30
+  timeoutSeconds: 3
+log:
+  enabled: true
+  level: info
+mysql:
+  architecture: standalone
+  auth:
+    database: mlflow
+    password: ''
+    username: ''
+  enabled: false
+  primary:
+    persistence:
+      enabled: true
+      existingClaim: ''
+    service:
+      ports:
+        mysql: 3306
+nameOverride: ''
+nodeSelector: {}
+podAnnotations: {}
+podSecurityContext:
+  fsGroup: 1001
+  fsGroupChangePolicy: OnRootMismatch
+postgresql:
+  architecture: standalone
+  auth:
+    database: mlflow
+    password: ''
+    username: ''
+  enabled: false
+  primary:
+    persistence:
+      enabled: true
+      existingClaim: ''
+    service:
+      ports:
+        postgresql: 5432
+readinessProbe:
+  failureThreshold: 5
+  initialDelaySeconds: 10
+  periodSeconds: 30
+  timeoutSeconds: 3
+replicaCount: 1
+resources: {}
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  privileged: false
+  readOnlyRootFilesystem: false
+  runAsGroup: 1001
+  runAsNonRoot: true
+  runAsUser: 1001
+service:
+  annotations: {}
+  containerPort: 5000
+  containerPortName: mlflow
+  enabled: true
+  name: http
+  port: 80
+  type: ClusterIP
+serviceAccount:
+  annotations: {}
+  automount: true
+  create: true
+  name: ''
+serviceMonitor:
+  enabled: false
+  interval: 30s
+  labels:
+    release: prometheus
+  metricRelabelings: []
+  namespace: monitoring
+  targetLabels: []
+  telemetryPath: /metrics
+  timeout: 10s
+  useServicePort: false
+strategy:
+  rollingUpdate:
+    maxSurge: 100%
+    maxUnavailable: 0
+  type: RollingUpdate
+telemetry:
+  enabled: false
+tolerations: []
+global:
+  cattle:
+    systemProjectId: p-pb7pj
+
