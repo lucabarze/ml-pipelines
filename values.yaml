@@ -76,7 +76,7 @@ mlflow:
           protocol: TCP
     restartPolicy: Always
 vllm:
-  enabled: true
+  enabled: false
   servingEngineSpec:
     runtimeClassName: ""
     modelSpec:
