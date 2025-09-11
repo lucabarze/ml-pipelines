@@ -1,16 +1,16 @@
 # SPDX-License-Identifier: APACHE-2.0
 #!BuildTag: charts/suse-ai-deployer:1.0.0-%RELEASE%
 #!BuildTag: charts/suse-ai-deployer:1.0.0
-# annotations:
-helm.sh/images: |
-  - image: dp.apps.rancher.io/containers/milvus:2.4.6
-    name: milvus
-  - image: dp.apps.rancher.io/containers/minio:5.4.0
-    name: minio
-  - image: dp.apps.rancher.io/containers/bci-busybox:15.5
-    name: bci-busybox
-  - image: dp.apps.rancher.io/containers/postgresql:0.4.4
-    name: postgresql
+annotations:
+  helm.sh/images: |
+    - image: dp.apps.rancher.io/containers/milvus:2.4.6
+      name: milvus
+    - image: dp.apps.rancher.io/containers/minio:5.4.0
+      name: minio
+    - image: dp.apps.rancher.io/containers/bci-busybox:15.5
+      name: bci-busybox
+    - image: dp.apps.rancher.io/containers/postgresql:0.4.4
+      name: postgresql
 #     # - image: dp.apps.rancher.io/containers/open-webui:0.6.9
 #     #   name: open-webui
 #     # - image: dp.apps.rancher.io/containers/pytorch:2.7.0-nvidia
