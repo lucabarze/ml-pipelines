@@ -1,0 +1,153 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rag-api
+  namespace: barzel
+  labels:
+    app: rag-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rag-api
+  template:
+    metadata:
+      labels:
+        app: rag-api
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+      containers:
+        - name: rag-api
+          image: core.harbor.apps.eni.lajoie.de/suseai/rag_api:0.0.1
+          imagePullPolicy: Always
+          volumeMounts:
+            - name: cache
+              mountPath: /cache
+            - name: mlflow-cache
+              mountPath: /mlflow-cache
+          ports:
+            - name: http
+              containerPort: 8000
+          env:
+            - name: XDG_CACHE_HOME
+              value: /cache
+            - name: HF_HOME
+              value: /cache/hf
+            - name: HUGGINGFACE_HUB_CACHE
+              value: /cache/hub
+            - name: SENTENCE_TRANSFORMERS_HOME
+              value: /cache/st
+            - name: MODEL_CACHE
+              value: /cache/models
+            # === vLLM back-end ===
+            - name: VLLM_URL
+              value: "http://vllm-router-service.vllm.svc.cluster.local/v1/chat/completions"
+            # === Milvus ===
+            - name: MILVUS_HOST
+              value: "milvus.milvus.svc.cluster.local"
+            - name: MILVUS_PORT
+              value: "19530"
+            - name: MILVUS_COLLECTION
+              value: "rag_chunks"
+            - name: MILVUS_VECTOR_FIELD
+              value: "embedding"
+            - name: MILVUS_TEXT_FIELD
+              value: "text"
+            - name: TOP_K
+              value: "4"
+            # === Embedding model & prompt ===
+            - name: EMB_MODEL
+              value: "intfloat/e5-small-v2"
+            - name: SYSTEM_PROMPT
+              value: "You are a helpful assistant. Ground your answers ONLY on the provided context. If the answer is not in the context, say you don't know."
+            - name: MLFLOW_TRACKING_URI
+              value: "http://mlflow.mlflow.svc.cluster.local"
+            - { name: OMP_NUM_THREADS, value: "1" }
+            - { name: MKL_NUM_THREADS, value: "1" }
+            - { name: OPENBLAS_NUM_THREADS, value: "1" }
+            - { name: NUMEXPR_NUM_THREADS, value: "1" }
+            - { name: TOKENIZERS_PARALLELISM, value: "false" }
+            - { name: RAYON_NUM_THREADS, value: "1" }
+            - name: MLFLOW_TMP_DIR
+              value: /mlflow-cache
+          startupProbe:
+            httpGet: { path: /health, port: 8000 }
+            initialDelaySeconds: 15
+            periodSeconds: 5
+            failureThreshold: 60 
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 20
+            timeoutSeconds: 2
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "1"
+              memory: "1Gi"
+      volumes:
+        - name: cache
+          persistentVolumeClaim:
+            claimName: st-model-cache
+        - name: mlflow-cache
+          emptyDir:
+            sizeLimit: 5Gi 
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rag-api
+  namespace: barzel
+  labels:
+    app: rag-api
+spec:
+  type: ClusterIP
+  selector:
+    app: rag-api
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: rag-api
+  namespace: barzel
+  annotations:
+    # Se usi NGINX Ingress, utili per SSE/streaming
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+spec:
+  ingressClassName: nginx  
+  rules:
+    - host: ragapi.apps.eni.lajoie.de
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: rag-api
+                port:
+                  number: 80
+

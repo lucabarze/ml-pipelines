@@ -1,11 +1,10 @@
-import os, argparse, glob, re, json, tempfile
+import os, argparse, glob, re
 from pathlib import Path
 import numpy as np
-import torch
-from transformers import AutoTokenizer, AutoModel
+from sentence_transformers import SentenceTransformer
 from pymilvus import connections, FieldSchema, CollectionSchema, DataType, Collection, utility
 
-# ---------- Markdown → testo ----------
+# ---------- Markdown -> testo ----------
 def read_markdown_files(docs_dir: str):
     paths = sorted(glob.glob(os.path.join(docs_dir, "**/*.md"), recursive=True))
     for p in paths:
@@ -15,66 +14,60 @@ def read_markdown_files(docs_dir: str):
 def strip_md(md: str) -> str:
     md = re.sub(r"```.*?```", "", md, flags=re.S)
     md = re.sub(r"`([^`]+)`", r"\1", md)
-    md = re.sub(r"!$begin:math:display$[^$end:math:display$]*\]$begin:math:text$[^)]+$end:math:text$", "", md)
-    md = re.sub(r"$begin:math:display$[^$end:math:display$]+\]$begin:math:text$([^)]+)$end:math:text$", r"\1", md)
     md = re.sub(r"^#+\s*", "", md, flags=re.M)
     md = re.sub(r"\s+", " ", md).strip()
     return md
 
 def chunk_text(text: str, max_chars=1200, overlap=150):
     parts, i = [], 0
-    while i < len(text):
-        j = min(i + max_chars, len(text))
+    n = len(text)
+    while i < n:
+        j = min(i + max_chars, n)
         k = text.rfind(".", i, j)
-        if k == -1:
-            k = text.rfind("\n", i, j)
-        if k == -1:
-            k = j
+        if k == -1: k = text.rfind("\n", i, j)
+        if k == -1: k = j
         parts.append(text[i:k].strip())
-        i = max(k - overlap, i + 1)
-    return [p for p in parts if len(p) > 0]
+        # evita loop anche quando k == i
+        i = max(k - overlap, i + max(1, k - i))
+    return [p for p in parts if p]
 
-# ---------- Embeddings ----------
+# ---------- Embeddings (E5 + SentenceTransformers) ----------
 def load_encoder(name: str):
-    tok = AutoTokenizer.from_pretrained(name)
-    mdl = AutoModel.from_pretrained(name)
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    mdl.to(device).eval()
-    return tok, mdl, device, mdl.config.hidden_size
+    model = SentenceTransformer(name)  # usa GPU se disponibile
+    dim = model.get_sentence_embedding_dimension()
+    return model, dim
 
-@torch.no_grad()
-def embed(texts, tok, mdl, device, max_len=512, normalize=True):
-    out = []
-    for i in range(0, len(texts), 32):
-        batch = tok(texts[i:i+32], truncation=True, padding=True, max_length=max_len, return_tensors="pt").to(device)
-        vec = mdl(**batch).last_hidden_state[:,0,:]
-        v = vec.detach().cpu().numpy().astype("float32")
-        out.append(v)
-    X = np.concatenate(out, axis=0) if out else np.zeros((0, tok.model_max_length), dtype="float32")
-    if normalize and len(X):
-        X /= (np.linalg.norm(X, axis=1, keepdims=True) + 1e-12)
-    return X
+def embed_passages(texts, model: SentenceTransformer, batch_size=64):
+    texts = [f"passage: {t}" for t in texts]        # E5: prefisso per i documenti
+    vecs = model.encode(texts, batch_size=batch_size, normalize_embeddings=True, show_progress_bar=False)
+    return vecs.astype("float32")
 
 # ---------- Milvus ----------
-def ensure_collection(name: str, dim: int, drop: bool, metric="COSINE"):
+def ensure_collection(name: str, dim: int, drop: bool, metric="COSINE") -> Collection:
     if utility.has_collection(name):
         if drop:
             utility.drop_collection(name)
         else:
             return Collection(name)
-    schema = CollectionSchema([
-        FieldSchema(name="id", dtype=DataType.INT64, is_primary=True, auto_id=True),
-        FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=dim),
-        FieldSchema(name="doc_id", dtype=DataType.VARCHAR, max_length=512),
-        FieldSchema(name="chunk_id", dtype=DataType.INT64),
-        FieldSchema(name="path", dtype=DataType.VARCHAR, max_length=1024),
-        FieldSchema(name="text", dtype=DataType.VARCHAR, max_length=4096),
-    ], description="RAG chunks from Markdown")
-    col = Collection(name, schema=schema)
-    col.create_index("embedding", {"index_type":"HNSW","metric_type":metric,"params":{"M":16,"efConstruction":200}})
-    return col
+    schema = CollectionSchema(
+        fields=[
+            FieldSchema(name="id", dtype=DataType.INT64, is_primary=True, auto_id=True),
+            FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=dim),
+            FieldSchema(name="doc_id", dtype=DataType.VARCHAR, max_length=512),
+            FieldSchema(name="chunk_id", dtype=DataType.INT64),
+            FieldSchema(name="path", dtype=DataType.VARCHAR, max_length=1024),
+            FieldSchema(name="text", dtype=DataType.VARCHAR, max_length=8192),
+        ],
+        description="RAG chunks from Markdown",
+    )
+    return Collection(name, schema=schema)
+
+def build_index(col: Collection, metric="COSINE"):
+    index_params = {"index_type": "HNSW", "metric_type": metric, "params": {"M": 16, "efConstruction": 200}}
+    col.create_index(field_name="embedding", index_params=index_params)
 
 def main():
+    import argparse
     ap = argparse.ArgumentParser()
     ap.add_argument("--docs_dir", required=True, help="Cartella con file .md")
     ap.add_argument("--milvus_host", default="milvus.myns.svc.cluster.local")
@@ -84,6 +77,7 @@ def main():
     ap.add_argument("--drop_if_exists", action="store_true")
     ap.add_argument("--chunk_chars", type=int, default=1200)
     ap.add_argument("--chunk_overlap", type=int, default=150)
+    ap.add_argument("--batch_size", type=int, default=256)
     args = ap.parse_args()
 
     docs = list(read_markdown_files(args.docs_dir))
@@ -98,23 +92,26 @@ def main():
             paths.append(path)
     print(f"[INGEST] files: {len(docs)}  chunks: {len(texts)}")
 
-    tok, mdl, device, dim = load_encoder(args.emb_model)
-    print(f"[EMB] {args.emb_model} dim={dim} device={device}")
+    model, dim = load_encoder(args.emb_model)
+    print(f"[EMB] {args.emb_model} dim={dim}")
 
     connections.connect("default", host=args.milvus_host, port=args.milvus_port)
     col = ensure_collection(args.collection, dim, args.drop_if_exists, metric="COSINE")
-    col.load()
 
-    B = 256
+    B = args.batch_size
     total = 0
     for s in range(0, len(texts), B):
         batch_texts = texts[s:s+B]
-        vecs = embed(batch_texts, tok, mdl, device)
-        mr = col.insert([vecs, doc_ids[s:s+B], chunk_ids[s:s+B], paths[s:s+B], batch_texts])
+        vecs = embed_passages(batch_texts, model)
+        # ordine campi = [embedding, doc_id, chunk_id, path, text]
+        col.insert([vecs, doc_ids[s:s+B], chunk_ids[s:s+B], paths[s:s+B], batch_texts])
         total += len(batch_texts)
         if total % 1024 == 0:
             print(f"[INGEST] inserted {total}")
+
     col.flush()
+    build_index(col, metric="COSINE")
+    col.load()
     print(f"[DONE] inserted total: {total}")
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 name: IngestMilvus
 docker_env:
-  image: core.harbor.apps.eni.lajoie.de/suseai/eni-golden-image:v0.0.1
+  image: core.harbor.apps.eni.lajoie.de/suseai/golden-image:v0.0.1
 entry_points:
   main:
     parameters:

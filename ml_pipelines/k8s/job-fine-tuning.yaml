@@ -1,0 +1,46 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: job-fine-tuning
+  namespace: barzel
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 600
+  template:
+    spec:
+      restartPolicy: Never
+      imagePullSecrets:
+        - name: application-collection
+      initContainers:
+        - name: git-clone
+          image: dp.apps.rancher.io/containers/git:2.51.0
+          env:
+            - name: GIT_USER
+              valueFrom: {secretKeyRef: {name: github-secret, key: GIT_USERNAME}}
+            - name: GIT_PAT
+              valueFrom: {secretKeyRef: {name: github-secret, key: GIT_PASSWORD}}
+          command: ["/bin/sh","-lc"]
+          args:
+            - git clone https://$(GIT_USER):$(GIT_PAT)@github.com/lucabarze/ml-pipelines.git /workspace
+          volumeMounts:
+            - { name: workspace, mountPath: /workspace }
+      containers:
+        - name: trainer
+          image: core.harbor.apps.eni.lajoie.de/suseai/golden-image:0.0.1
+          env:
+            - { name: MLFLOW_TRACKING_URI, value: "http://mlflow.mlflow.svc.cluster.local" }
+          envFrom:
+            - secretRef: { name: mlflow-minio-secret }
+          workingDir: /workspace/ml_pipelines/jobs/fine_tuning
+          command: ["python","src/fine_tuning_amd.py"]
+          args:
+            - --mlflow_uri=$(MLFLOW_TRACKING_URI)
+            - --model_name=mistralai/Mistral-7B-Instruct-v0.2
+            - --data_uri=latest:Datasets
+            - --epochs=1
+            - --lr=2e-4
+          volumeMounts:
+            - { name: workspace, mountPath: /workspace }
+      volumes:
+        - name: workspace
+          emptyDir: {}

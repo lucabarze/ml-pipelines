@@ -3,3 +3,10 @@ uvicorn[standard]==0.30.6
 pymilvus==2.4.6
 openai==1.43.0
 python-dotenv==1.0.1
+requests==2.32.3
+sentence-transformers==3.0.1
+torch>=2.3.0
+numpy>=1.24
+environs==9.5.0
+marshmallow>=3.13,<4
+mlflow>=2.8.0

@@ -1,0 +1,44 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: job-dataset-uploader
+  namespace: barzel
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 600
+  template:
+    spec:
+      restartPolicy: Never
+      initContainers:
+        - name: git-clone
+          image: dp.apps.rancher.io/containers/git:2.51.0
+          imagePullSecrets:
+            - name: application-collection
+          env:
+            - name: GIT_USER
+              valueFrom: {secretKeyRef: {name: github-secret, key: GIT_USERNAME}}
+            - name: GIT_PAT
+              valueFrom: {secretKeyRef: {name: github-secret, key: GIT_PASSWORD}}
+          command: ["/bin/sh","-lc"]
+          args:
+            - git clone https://$(GIT_USER):$(GIT_PAT)@github.com/<ORG>/<REPO>.git /workspace
+          volumeMounts:
+            - { name: workspace, mountPath: /workspace }
+      containers:
+        - name: uploader
+          image: core.harbor.apps.eni.lajoie.de/suseai/golden:v0.1.0
+          env:
+            - { name: MLFLOW_TRACKING_URI, value: "http://mlflow.mlflow.svc.cluster.local" }
+          envFrom:
+            - secretRef: { name: mlflow-minio-secret }
+          workingDir: /workspace/ml_pipelines/jobs/dataset_uploader
+          command: ["python","src/upload-dataset.py"]
+          args:
+            - --mlflow-uri=$(MLFLOW_TRACKING_URI)
+            - --experiment=Datasets
+            - --local-file=dataset.jsonl
+          volumeMounts:
+            - { name: workspace, mountPath: /workspace }
+      volumes:
+        - name: workspace
+          emptyDir: {}

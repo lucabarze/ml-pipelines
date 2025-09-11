@@ -1,0 +1,422 @@
+affinity: {}
+annotations: {}
+attu:
+  enabled: false
+  ingress:
+    annotations: {}
+    enabled: false
+    hosts:
+      - milvus-attu.local
+    ingressClassName: ''
+    labels: {}
+    tls: []
+  name: attu
+  podLabels: {}
+  resources: {}
+  service:
+    annotations: {}
+    labels: {}
+    port: 3000
+    type: ClusterIP
+cluster:
+  enabled: false
+customConfigMap: ''
+dataCoordinator:
+  activeStandby:
+    enabled: false
+  affinity: {}
+  enabled: false
+  extraEnv: []
+  heaptrack:
+    enabled: false
+  nodeSelector: {}
+  profiling:
+    enabled: false
+  replicas: 1
+  resources: {}
+  service:
+    annotations: {}
+    clusterIP: ''
+    labels: {}
+    port: 13333
+  strategy: {}
+  tolerations: []
+dataNode:
+  affinity: {}
+  enabled: false
+  extraEnv: []
+  heaptrack:
+    enabled: false
+  nodeSelector: {}
+  profiling:
+    enabled: false
+  replicas: 1
+  resources: {}
+  strategy: {}
+  tolerations: []
+etcd:
+  auth:
+    rbac:
+      enabled: false
+  enabled: true
+  name: etcd
+  persistence:
+    accessModes:
+      - ReadWriteOnce
+    enabled: true
+    storageClassName: null
+  replicaCount: 1
+  service:
+    annotations: {}
+    enabled: true
+    nodePorts:
+      client: '2379'
+      peer: '2380'
+    ports:
+      client: '2379'
+      peer: '2380'
+    type: ClusterIP
+externalEtcd:
+  enabled: false
+  endpoints:
+    - localhost:2379
+externalGcs:
+  bucketName: ''
+externalKafka:
+  brokerList: localhost:9092
+  enabled: false
+  sasl:
+    mechanisms: PLAIN
+    password: ''
+    username: ''
+  securityProtocol: SASL_SSL
+externalPulsar:
+  authParams: ''
+  authPlugin: ''
+  enabled: false
+  host: localhost
+  maxMessageSize: '5242880'
+  namespace: default
+  port: 6650
+  tenant: public
+externalS3:
+  accessKey: admin
+  bucketName: milvus
+  cloudProvider: aws
+  enabled: true
+  host: minio.minio
+  iamEndpoint: ''
+  port: 9000
+  region: ''
+  rootPath: ''
+  secretKey: admin123
+  useIAM: false
+  useSSL: false
+  useVirtualHost: false
+extraConfigFiles:
+  user.yaml: |+
+    #    For example enable rest http for milvus proxy
+    #    proxy:
+    #      http:
+    #        enabled: true
+    #      maxUserNum: 100
+    #      maxRoleNum: 10
+    ##  Enable tlsMode and set the tls cert and key
+    #  tls:
+    #    serverPemPath: /etc/milvus/certs/tls.crt
+    #    serverKeyPath: /etc/milvus/certs/tls.key
+    #   common:
+    #     security:
+    #       tlsMode: 1
+
+fullnameOverride: ''
+global:
+  imagePullSecrets:
+    - application-collection
+  imageRegistry: dp.apps.rancher.io
+  cattle:
+    systemProjectId: p-pb7pj
+image:
+  all:
+    pullPolicy: IfNotPresent
+    registry: dp.apps.rancher.io
+    repository: containers/milvus
+    tag: 2.4.6
+indexCoordinator:
+  activeStandby:
+    enabled: false
+  affinity: {}
+  enabled: false
+  extraEnv: []
+  heaptrack:
+    enabled: false
+  nodeSelector: {}
+  profiling:
+    enabled: false
+  replicas: 1
+  resources: {}
+  service:
+    annotations: {}
+    clusterIP: ''
+    labels: {}
+    port: 31000
+  strategy: {}
+  tolerations: []
+indexNode:
+  affinity: {}
+  disk:
+    enabled: true
+    size:
+      enabled: false
+  enabled: false
+  extraEnv: []
+  heaptrack:
+    enabled: false
+  nodeSelector: {}
+  profiling:
+    enabled: false
+  replicas: 1
+  resources: {}
+  strategy: {}
+  tolerations: []
+ingress:
+  annotations:
+    nginx.ingress.kubernetes.io/backend-protocol: GRPC
+    nginx.ingress.kubernetes.io/listen-ports-ssl: '[19530]'
+    nginx.ingress.kubernetes.io/proxy-body-size: 4m
+    nginx.ingress.kubernetes.io/ssl-redirect: 'true'
+  enabled: true
+  ingressClassName: ''
+  labels: {}
+  rules:
+    - host: milvus.apps.eni.lajoie.de
+      path: /
+      pathType: Prefix
+  tls: []
+kafka:
+  broker:
+    enabled: true
+  cluster:
+    listeners:
+      client:
+        protocol: PLAINTEXT
+      controller:
+        protocol: PLAINTEXT
+  containerPorts:
+    client: 9092
+  enabled: false
+  name: kafka
+  persistence:
+    accessModes:
+      - ReadWriteOnce
+    annotations: {}
+    enabled: true
+    existingClaim: ''
+    labels: {}
+    resources:
+      requests:
+        storage: 8Gi
+    storageClassName: ''
+  replicaCount: 3
+labels: {}
+livenessProbe:
+  enabled: true
+  failureThreshold: 5
+  initialDelaySeconds: 90
+  periodSeconds: 30
+  successThreshold: 1
+  timeoutSeconds: 5
+log:
+  file:
+    maxAge: 10
+    maxBackups: 20
+    maxSize: 300
+  format: text
+  level: info
+  persistence:
+    annotations:
+      helm.sh/resource-policy: keep
+    enabled: false
+    mountPath: /milvus/logs
+    persistentVolumeClaim:
+      accessModes: ReadWriteMany
+      existingClaim: ''
+      size: 10Gi
+      storageClass: null
+      subPath: ''
+metrics:
+  enabled: true
+  serviceMonitor:
+    additionalLabels: {}
+    enabled: false
+    interval: 30s
+    scrapeTimeout: 10s
+minio:
+  enabled: false
+  existingSecret: ''
+  mode: distributed
+  name: minio
+  persistence:
+    accessMode: ReadWriteOnce
+    enabled: true
+    existingClaim: ''
+    size: 500Gi
+    storageClass: null
+  podDisruptionBudget:
+    enabled: false
+  resources:
+    requests:
+      memory: 2Gi
+  rootPassword: minioadmin
+  rootUser: minioadmin
+  service:
+    port: 9000
+    type: ClusterIP
+mixCoordinator:
+  activeStandby:
+    enabled: false
+  affinity: {}
+  enabled: false
+  extraEnv: []
+  heaptrack:
+    enabled: false
+  nodeSelector: {}
+  profiling:
+    enabled: false
+  replicas: 1
+  resources: {}
+  service:
+    annotations: {}
+    clusterIP: ''
+    labels: {}
+  strategy: {}
+  tolerations: []
+nameOverride: ''
+nodeSelector: {}
+proxy:
+  affinity: {}
+  enabled: true
+  extraEnv: []
+  heaptrack:
+    enabled: false
+  http:
+    debugMode:
+      enabled: false
+    enabled: true
+  nodeSelector: {}
+  profiling:
+    enabled: false
+  replicas: 1
+  resources: {}
+  strategy: {}
+  tls:
+    enabled: false
+  tolerations: []
+queryCoordinator:
+  activeStandby:
+    enabled: false
+  affinity: {}
+  enabled: false
+  extraEnv: []
+  heaptrack:
+    enabled: false
+  nodeSelector: {}
+  profiling:
+    enabled: false
+  replicas: 1
+  resources: {}
+  service:
+    annotations: {}
+    clusterIP: ''
+    labels: {}
+    port: 19531
+  strategy: {}
+  tolerations: []
+queryNode:
+  affinity: {}
+  disk:
+    enabled: true
+    size:
+      enabled: false
+  enabled: false
+  extraEnv: []
+  heaptrack:
+    enabled: false
+  nodeSelector: {}
+  profiling:
+    enabled: false
+  replicas: 1
+  resources: {}
+  strategy: {}
+  tolerations: []
+readinessProbe:
+  enabled: true
+  failureThreshold: 5
+  initialDelaySeconds: 90
+  periodSeconds: 10
+  successThreshold: 1
+  timeoutSeconds: 5
+rootCoordinator:
+  activeStandby:
+    enabled: false
+  affinity: {}
+  enabled: false
+  extraEnv: []
+  heaptrack:
+    enabled: false
+  nodeSelector: {}
+  profiling:
+    enabled: false
+  replicas: 1
+  resources: {}
+  service:
+    annotations: {}
+    clusterIP: ''
+    labels: {}
+    port: 53100
+  strategy: {}
+  tolerations: []
+service:
+  annotations: {}
+  externalIPs: []
+  labels: {}
+  loadBalancerSourceRanges:
+    - 0.0.0.0/0
+  nodePort: ''
+  port: 19530
+  portName: milvus
+  type: ClusterIP
+serviceAccount:
+  annotations: null
+  create: false
+  labels: null
+  name: null
+standalone:
+  affinity: {}
+  disk:
+    enabled: true
+    size:
+      enabled: false
+  extraEnv: []
+  heaptrack:
+    enabled: false
+  messageQueue: rocksmq
+  nodeSelector: {}
+  persistence:
+    annotations:
+      helm.sh/resource-policy: keep
+    enabled: true
+    mountPath: /var/lib/milvus
+    persistentVolumeClaim:
+      accessModes: ReadWriteOnce
+      existingClaim: ''
+      size: 50Gi
+      storageClass: null
+      subPath: ''
+  profiling:
+    enabled: false
+  replicas: 1
+  resources: {}
+  tolerations: []
+tolerations: []
+

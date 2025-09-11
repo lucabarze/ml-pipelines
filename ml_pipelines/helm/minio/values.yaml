@@ -1,0 +1,501 @@
+auth:
+  database: mlflow_db
+  existingSecret: ''
+  password: mlflow_password
+  passwordKey: password
+  postgresPassword: ''
+  postgresPasswordKey: postgresPassword
+  postgresUsername: postgres
+  replicationPassword: ''
+  replicationPasswordKey: replicationPassword
+  replicationUsername: replication
+  username: mlflow_user
+clusterDomain: cluster.local
+commonAnnotations: {}
+commonLabels: {}
+configMap:
+  '*': null
+  enabled: >-
+    {{ and (not .Values.existingConfigMap) (or (not (empty
+    .Values.configuration)) (not (empty .Values.hbaConfiguration)) (not (empty
+    .Values.identConfiguration))) }}
+  '{{ .Values.configurationFile }}': '{{ .Values.configuration }}'
+  '{{ .Values.hbaConfigurationFile }}': '{{ .Values.hbaConfiguration }}'
+  '{{ .Values.identConfigurationFile }}': '{{ .Values.identConfiguration }}'
+configuration: ''
+configurationFile: postgresql.conf
+containerPorts:
+  '*': null
+  metrics: 9187
+  postgresql: 5432
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  enabled: true
+  runAsNonRoot: true
+  runAsUser: 1000
+existingConfigMap: ''
+extraManifests: []
+fullnameOverride: ''
+global:
+  imagePullSecrets:
+    - application-collection
+  imageRegistry: dp.apps.rancher.io
+  storageClassName: ''
+  cattle:
+    systemProjectId: p-pb7pj
+hbaConfiguration: ''
+hbaConfigurationFile: pg_hba.conf
+headlessService:
+  '*': null
+  annotations: {}
+  clusterIP: None
+  ports:
+    '*': null
+    postgresql: ''
+  publishNotReadyAddresses: true
+  type: ClusterIP
+identConfiguration: ''
+identConfigurationFile: pg_ident.conf
+images:
+  metrics:
+    digest: ''
+    pullPolicy: IfNotPresent
+    registry: dp.apps.rancher.io
+    repository: containers/postgres-exporter
+    tag: 0.17.1-8.4
+  postgresql:
+    digest: ''
+    pullPolicy: IfNotPresent
+    registry: dp.apps.rancher.io
+    repository: containers/postgresql
+    tag: 17.6-7.10
+  volume-permissions:
+    digest: ''
+    pullPolicy: IfNotPresent
+    registry: dp.apps.rancher.io
+    repository: containers/bci-busybox
+    tag: 15.6.37.1
+metrics:
+  annotations:
+    prometheus.io/port: >-
+      {{ coalesce .Values.containerPorts.metrics .Values.containerPorts.client
+      }}
+    prometheus.io/scrape: 'true'
+  enabled: false
+  prometheusRule:
+    configuration: {}
+    enabled: false
+    labels: {}
+    namespace: ''
+  service:
+    '*': null
+    annotations: {}
+    enabled: true
+    nodePorts:
+      '*': null
+      metrics: ''
+    ports:
+      '*': null
+      metrics: ''
+    type: ClusterIP
+nameOverride: ''
+networkPolicy:
+  allowExternalConnections: true
+  egress:
+    allowExternalConnections: true
+    enabled: true
+    extraRules: []
+    namespaceLabels: {}
+    podLabels: {}
+    ports:
+      '*': null
+      postgresql: ''
+  enabled: false
+  ingress:
+    allowExternalConnections: true
+    enabled: true
+    extraRules: []
+    namespaceLabels: {}
+    podLabels: {}
+    ports:
+      '*': null
+      postgresql: ''
+nodeCount: 1
+persistence:
+  accessModes:
+    - ReadWriteOnce
+  annotations: {}
+  enabled: true
+  existingClaim: ''
+  labels: {}
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: ''
+podDisruptionBudget:
+  enabled: false
+  maxUnavailable: ''
+  minAvailable: ''
+podSecurityContext:
+  enabled: true
+podTemplates:
+  '*': null
+  annotations:
+    kubectl.kubernetes.io/default-container: postgresql
+  containers:
+    metrics:
+      '*': null
+      args: []
+      command: ''
+      enabled: '{{ .Values.metrics.enabled }}'
+      env:
+        DATA_SOURCE_PASS:
+          enabled: true
+          valueFrom:
+            secretKeyRef:
+              key: '{{ .Values.auth.postgresPasswordKey }}'
+              name: >-
+                {{ coalesce .Values.auth.existingSecret (include
+                "application-collection.fullName" .) }}
+        DATA_SOURCE_URI: >-
+          {{ printf "127.0.0.1:%d/?sslmode=disable" (int
+          .Values.containerPorts.postgresql) }}
+        DATA_SOURCE_USER: '{{ .Values.auth.postgresUsername }}'
+      envFrom: []
+      image: ''
+      imagePullPolicy: ''
+      livenessProbe:
+        enabled: true
+        failureThreshold: 5
+        initialDelaySeconds: 10
+        periodSeconds: 10
+        successThreshold: 1
+        tcpSocket:
+          port: metrics
+        timeoutSeconds: 5
+      ports: {}
+      readinessProbe:
+        enabled: true
+        failureThreshold: 5
+        httpGet:
+          path: /
+          port: metrics
+        initialDelaySeconds: 10
+        periodSeconds: 10
+        successThreshold: 1
+        timeoutSeconds: 5
+      resources: {}
+      securityContext: {}
+      startupProbe:
+        enabled: false
+        failureThreshold: 10
+        initialDelaySeconds: 0
+        periodSeconds: 10
+        successThreshold: 1
+        tcpSocket:
+          port: metrics
+        timeoutSeconds: 5
+      volumeMounts:
+        certs:
+          enabled: '{{ and .Values.tls.enabled }}'
+          mountPath: /mnt/postgresql/certs
+          readOnly: true
+    postgresql:
+      '*': null
+      args: []
+      command:
+        - /bin/bash
+        - '-ec'
+        - |
+          exec /mnt/postgresql/scripts/postgresql-entrypoint.sh
+      enabled: true
+      env:
+        PGDATA: >-
+          {{
+          .Values.podTemplates.containers.postgresql.volumeMounts.data.mountPath
+          }}/pgdata
+        PGPASSWORD: $(_POSTGRES_PASSWORD)
+        PGPORT: '{{ .Values.containerPorts.postgresql }}'
+        PGSSLCERT:
+          enabled: '{{ and .Values.tls.enabled (not (empty .Values.tls.certFilename)) }}'
+          value: >-
+            {{
+            .Values.podTemplates.containers.postgresql.volumeMounts.certs.mountPath
+            }}/{{ .Values.tls.certFilename }}
+        PGSSLCRL:
+          enabled: '{{ and .Values.tls.enabled (not (empty .Values.tls.crlFilename)) }}'
+          value: >-
+            {{
+            .Values.podTemplates.containers.postgresql.volumeMounts.certs.mountPath
+            }}/{{ .Values.tls.crlFilename }}
+        PGSSLKEY:
+          enabled: '{{ and .Values.tls.enabled (not (empty .Values.tls.keyFilename)) }}'
+          value: >-
+            {{
+            .Values.podTemplates.containers.postgresql.volumeMounts.certs.mountPath
+            }}/{{ .Values.tls.keyFilename }}
+        PGSSLMODE:
+          enabled: '{{ and .Values.tls.enabled (not (empty .Values.tls.sslMode)) }}'
+          value: '{{ .Values.tls.sslMode }}'
+        PGSSLROOTCERT:
+          enabled: >-
+            {{ and .Values.tls.enabled (not (empty .Values.tls.caCertFilename))
+            }}
+          value: >-
+            {{
+            .Values.podTemplates.containers.postgresql.volumeMounts.certs.mountPath
+            }}/{{ .Values.tls.caCertFilename }}
+        PGUSER: '{{ .Values.auth.postgresUsername }}'
+        _FQDN_CLUSTER_PREFIX: >-
+          {{ printf "%s.%s.svc.%s" (include "application-collection.fullName"
+          (dict "suffix" "headless" "context" $)) .Release.Namespace
+          .Values.clusterDomain }}
+        _POSTGRES_CLUSTER_APPLICATION_NAME: walreceiver
+        _POSTGRES_CONF_FILE:
+          enabled: >-
+            {{ and .Values.configMap.enabled (not (empty .Values.configuration))
+            }}
+          value: >-
+            {{
+            .Values.podTemplates.containers.postgresql.volumeMounts.conf.mountPath
+            }}/{{ .Values.configurationFile }}
+        _POSTGRES_HBA_CONF_FILE:
+          enabled: >-
+            {{ and .Values.configMap.enabled (not (empty
+            .Values.hbaConfiguration)) }}
+          value: >-
+            {{
+            .Values.podTemplates.containers.postgresql.volumeMounts.conf.mountPath
+            }}/{{ .Values.hbaConfigurationFile }}
+        _POSTGRES_IDENT_CONF_FILE:
+          enabled: >-
+            {{ and .Values.configMap.enabled (not (empty
+            .Values.identConfiguration)) }}
+          value: >-
+            {{
+            .Values.podTemplates.containers.postgresql.volumeMounts.conf.mountPath
+            }}/{{ .Values.identConfigurationFile }}
+        _POSTGRES_INITIAL_DATABASE:
+          enabled: '{{ not (empty .Values.auth.database) }}'
+          value: '{{ .Values.auth.database }}'
+        _POSTGRES_INITIAL_PASSWORD:
+          enabled: '{{ not (empty .Values.auth.username) }}'
+          valueFrom:
+            secretKeyRef:
+              key: '{{ .Values.auth.passwordKey }}'
+              name: >-
+                {{ coalesce .Values.auth.existingSecret (include
+                "application-collection.fullName" .) }}
+        _POSTGRES_INITIAL_USERNAME:
+          enabled: '{{ not (empty .Values.auth.username) }}'
+          value: '{{ .Values.auth.username }}'
+        _POSTGRES_PASSWORD:
+          enabled: true
+          valueFrom:
+            secretKeyRef:
+              key: '{{ .Values.auth.postgresPasswordKey }}'
+              name: >-
+                {{ coalesce .Values.auth.existingSecret (include
+                "application-collection.fullName" .) }}
+        _POSTGRES_PRIMARY_HOST: >-
+          {{ printf "%s.%s.%s.svc.%s" (include "application-collection.fullName"
+          (dict "suffix" "0" "context" $)) (include
+          "application-collection.fullName" (dict "suffix" "headless" "context"
+          $)) .Release.Namespace .Values.clusterDomain }}
+        _POSTGRES_REPLICATION_PASSWORD:
+          enabled: true
+          valueFrom:
+            secretKeyRef:
+              key: '{{ .Values.auth.replicationPasswordKey }}'
+              name: >-
+                {{ coalesce .Values.auth.existingSecret (include
+                "application-collection.fullName" .) }}
+        _POSTGRES_REPLICATION_USERNAME: '{{ .Values.auth.replicationUsername }}'
+        _POSTGRES_REPLICA_TO_PRIMARY_CLONE_ATTEMPTS: '60'
+        _POSTGRES_REPLICA_TO_PRIMARY_CONNECTION_ATTEMPTS: '30'
+        _POSTGRES_SSL:
+          enabled: '{{ and .Values.tls.enabled }}'
+          value: 'on'
+        _POSTGRES_SSL_CA_FILE:
+          enabled: >-
+            {{ and .Values.tls.enabled (not (empty .Values.tls.caCertFilename))
+            }}
+          value: >-
+            {{
+            .Values.podTemplates.containers.postgresql.volumeMounts.certs.mountPath
+            }}/{{ .Values.tls.caCertFilename }}
+        _POSTGRES_SSL_CERT_FILE:
+          enabled: '{{ and .Values.tls.enabled (not (empty .Values.tls.certFilename)) }}'
+          value: >-
+            {{
+            .Values.podTemplates.containers.postgresql.volumeMounts.certs.mountPath
+            }}/{{ .Values.tls.certFilename }}
+        _POSTGRES_SSL_CRL_FILE:
+          enabled: '{{ and .Values.tls.enabled (not (empty .Values.tls.crlFilename)) }}'
+          value: >-
+            {{
+            .Values.podTemplates.containers.postgresql.volumeMounts.certs.mountPath
+            }}/{{ .Values.tls.crlFilename }}
+        _POSTGRES_SSL_KEY_FILE:
+          enabled: '{{ and .Values.tls.enabled (not (empty .Values.tls.keyFilename)) }}'
+          value: >-
+            {{
+            .Values.podTemplates.containers.postgresql.volumeMounts.certs.mountPath
+            }}/{{ .Values.tls.keyFilename }}
+        _POSTGRES_SSL_MODE:
+          enabled: '{{ and .Values.tls.enabled (not (empty .Values.tls.sslMode)) }}'
+          value: '{{ .Values.tls.sslMode }}'
+      envFrom: []
+      image: ''
+      imagePullPolicy: ''
+      livenessProbe:
+        enabled: true
+        exec:
+          command:
+            - /mnt/postgresql/scripts/postgresql-liveness-check.sh
+        failureThreshold: 5
+        initialDelaySeconds: 10
+        periodSeconds: 10
+        successThreshold: 1
+        timeoutSeconds: 5
+      ports: {}
+      readinessProbe:
+        enabled: true
+        exec:
+          command:
+            - /mnt/postgresql/scripts/postgresql-readiness-check.sh
+        failureThreshold: 5
+        initialDelaySeconds: 10
+        periodSeconds: 10
+        successThreshold: 1
+        timeoutSeconds: 5
+      resources: {}
+      securityContext: {}
+      startupProbe:
+        enabled: false
+        failureThreshold: 10
+        initialDelaySeconds: 0
+        periodSeconds: 10
+        successThreshold: 1
+        tcpSocket:
+          port: postgresql
+        timeoutSeconds: 5
+      volumeMounts:
+        certs:
+          enabled: '{{ .Values.tls.enabled }}'
+          mountPath: /mnt/postgresql/certs
+          readOnly: true
+        conf:
+          enabled: >-
+            {{ and (not .Values.existingConfigMap) (or (not (empty
+            .Values.configuration)) (not (empty .Values.hbaConfiguration)) (not
+            (empty .Values.identConfiguration))) }}
+          mountPath: /mnt/postgresql/conf
+          readOnly: true
+        data:
+          enabled: true
+          mountPath: /mnt/postgresql/data
+        scripts:
+          enabled: true
+          mountPath: /mnt/postgresql/scripts
+          readOnly: true
+  imagePullSecrets:
+    - application-collection
+  initContainers:
+    volume-permissions:
+      '*': null
+      args: []
+      command:
+        - /bin/sh
+        - '-ec'
+        - >
+          chmod -R u+rwX,go-rwx /mnt/postgresql/data
+
+          chown -R {{ .Values.containerSecurityContext.runAsUser }}
+          /mnt/postgresql/data
+      enabled: false
+      env: {}
+      envFrom: []
+      image: ''
+      imagePullPolicy: ''
+      resources: {}
+      securityContext:
+        runAsUser: 0
+      volumeMounts:
+        data:
+          enabled: true
+          mountPath: /mnt/postgresql/data
+  labels: {}
+  securityContext: {}
+  serviceAccountName: ''
+  volumes:
+    certs:
+      enabled: '{{ .Values.tls.enabled }}'
+      secret:
+        defaultMode: 288
+        secretName: '{{ tpl .Values.tls.existingSecret . }}'
+    conf:
+      configMap:
+        defaultMode: 288
+        name: '{{ include "application-collection.fullName" $ }}'
+      enabled: true
+    data:
+      emptyDir:
+        medium: ''
+      enabled: >-
+        {{ and (not .Values.statefulset.volumeClaimTemplates) (not
+        .Values.persistence.enabled) }}
+    scripts:
+      configMap:
+        defaultMode: 360
+        name: >-
+          {{ include "application-collection.fullName" (dict "suffix" "scripts"
+          "context" $) }}
+      enabled: true
+secret:
+  '*': null
+  enabled: '{{ not .Values.auth.existingSecret }}'
+  '{{ .Values.auth.passwordKey }}':
+    enabled: '{{ not (empty .Values.auth.username) }}'
+    value: '{{ default (randAlphaNum 16) .Values.auth.password }}'
+  '{{ .Values.auth.postgresPasswordKey }}': '{{ default (randAlphaNum 16) .Values.auth.postgresPassword }}'
+  '{{ .Values.auth.replicationPasswordKey }}': '{{ default (randAlphaNum 16) .Values.auth.replicationPassword }}'
+service:
+  '*': null
+  annotations: {}
+  enabled: true
+  nodePorts:
+    '*': null
+    postgresql: ''
+  ports:
+    '*': null
+    postgresql: ''
+  type: ClusterIP
+serviceAccount:
+  annotations: {}
+  automountServiceAccountToken: true
+  enabled: false
+  imagePullSecrets:
+    - application-collection
+  labels: {}
+  name: ''
+  secrets: []
+statefulset:
+  '*': null
+  enabled: true
+  persistentVolumeClaimRetentionPolicy: {}
+  podManagementPolicy: Parallel
+  replicas: ''
+  serviceName: ''
+  template: {}
+  updateStrategy:
+    type: RollingUpdate
+tls:
+  caCertFilename: ''
+  certFilename: ''
+  crlFilename: ''
+  enabled: false
+  existingSecret: ''
+  keyFilename: ''
+  sslMode: ''
+

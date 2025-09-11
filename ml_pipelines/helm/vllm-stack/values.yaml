@@ -1,0 +1,151 @@
+loraAdapters: []
+loraController:
+  affinity: {}
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+  enableLoraController: false
+  env: []
+  extraArgs: []
+  image:
+    pullPolicy: IfNotPresent
+    repository: lmcache/lmstack-lora-controller
+    tag: latest
+  imagePullSecrets: []
+  kubernetesClusterDomain: cluster.local
+  metrics:
+    enabled: true
+  nodeSelector: {}
+  podAnnotations: {}
+  podSecurityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+  replicaCount: 1
+  resources: {}
+  tolerations: []
+  webhook:
+    enabled: false
+routerSpec:
+  autoscaling:
+    enabled: false
+    maxReplicas: 3
+    minReplicas: 1
+    targetCPUUtilizationPercentage: 80
+  containerPort: 8000
+  enableRouter: true
+  engineScrapeInterval: 15
+  extraArgs: []
+  imagePullPolicy: Always
+  ingress:
+    annotations: {}
+    className: ''
+    enabled: true
+    hosts:
+      - host: vllm.apps.eni.lajoie.de
+        paths:
+          - path: /
+            pathType: Prefix
+    tls: []
+  labels:
+    environment: router
+    release: router
+  nodeSelectorTerms: []
+  priorityClassName: ''
+  replicaCount: 1
+  repository: lmcache/lmstack-router
+  requestStatsWindow: 60
+  resources:
+    limits:
+      memory: 500Mi
+    requests:
+      cpu: 400m
+      memory: 500Mi
+  route:
+    main:
+      additionalRules: []
+      annotations: {}
+      apiVersion: gateway.networking.k8s.io/v1
+      enabled: false
+      filters: []
+      hostnames: []
+      httpsRedirect: false
+      kind: HTTPRoute
+      labels: {}
+      matches:
+        - path:
+            type: PathPrefix
+            value: /
+      parentRefs: []
+  routingLogic: roundrobin
+  serviceAnnotations: {}
+  serviceDiscovery: k8s
+  servicePort: 80
+  serviceType: ClusterIP
+  sessionKey: ''
+  staticBackends: ''
+  staticModels: ''
+  strategy: {}
+  tag: latest
+servingEngineSpec:
+  configs: {}
+  containerPort: 8000
+  containerSecurityContext:
+    runAsNonRoot: false
+  enableEngine: true
+  labels:
+    environment: test
+    release: test
+  livenessProbe:
+    failureThreshold: 3
+    httpGet:
+      path: /health
+      port: 8000
+    initialDelaySeconds: 15
+    periodSeconds: 10
+  maxUnavailablePodDisruptionBudget: ''
+  modelSpec:
+    - imagePullPolicy: IfNotPresent
+      modelURL: microsoft/Phi-3-mini-4k-instruct
+      name: phi3-mini
+      pvcAccessMode:
+        - ReadWriteOnce
+      pvcStorage: 50Gi
+      replicaCount: 1
+      repository: rocm/vllm
+      requestCPU: 4
+      requestGPU: 1
+      requestGPUType: amd.com/gpu
+      requestMemory: 24Gi
+      storageClass: local-path-data
+      tag: latest
+      vllmConfig:
+        dtype: auto
+        extraArgs:
+          - '--served-model-name=phi3-mini'
+          - '--trust-remote-code'
+          - '--download-dir=/models-cache'
+        gpuMemoryUtilization: 0.95
+        maxModelLen: 4096
+  runtimeClassName: ''
+  schedulerName: ''
+  securityContext: {}
+  servicePort: 80
+  sidecar:
+    image: lmcache/lmstack-sidecar:latest
+    imagePullPolicy: Always
+  startupProbe:
+    failureThreshold: 60
+    httpGet:
+      path: /health
+      port: 8000
+    initialDelaySeconds: 15
+    periodSeconds: 10
+  strategy: {}
+  tolerations: []
+global:
+  cattle:
+    systemProjectId: p-pb7pj
+
