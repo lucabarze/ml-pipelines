@@ -1,0 +1,63 @@
+# SPDX-License-Identifier: APACHE-2.0
+#!BuildTag: charts/suse-ai-deployer:1.0.0-%RELEASE%
+#!BuildTag: charts/suse-ai-deployer:1.0.0
+# annotations:
+#   helm.sh/images: |
+#     # - image: dp.apps.rancher.io/containers/milvus:2.4.6
+#     #   name: milvus
+#     - image: dp.apps.rancher.io/containers/ollama:0.11.4
+#       name: ollama
+#     - image: dp.apps.rancher.io/containers/bci-busybox:15.5
+#       name: bci-busybox
+#     # - image: dp.apps.rancher.io/containers/open-webui:0.6.9
+#     #   name: open-webui
+#     # - image: dp.apps.rancher.io/containers/pytorch:2.7.0-nvidia
+#     #   name: pytorch
+apiVersion: v2
+name: suse-ai-eni-poc
+description: A pipeline test designed to evaluate and select a new framework for use on High-Performance Computing (HPC) environments.
+  - ai
+
+# A chart can be either an 'application' or a 'library' chart.
+#
+# Application charts are a collection of templates that can be packaged into versioned archives
+# to be deployed.
+#
+# Library charts provide useful utilities or functions for the chart developer. They're included as
+# a dependency of application charts to inject those utilities and functions into the rendering
+# pipeline. Library charts do not define any templates and therefore cannot be deployed.
+type: application
+
+# This is the chart version. This version number should be incremented each time you make changes
+# to the chart and its templates, including the app version.
+# Versions are expected to follow Semantic Versioning (https://semver.org/)
+version: 1.0.0
+
+# This is the version number of the application being deployed. This version number should be
+# incremented each time you make changes to the application. Versions are not expected to
+# follow Semantic Versioning. They should reflect the version the application is using.
+# It is recommended to use it with quotes.
+appVersion: "1.0.0"
+
+dependencies:
+  - name: vllm
+    version: 0.1.7
+    condition: vllm.enabled
+  - name: minio
+    version: 5.4.0
+    condition: minio.enabled
+  - name: qdrant
+    version: 1.15.4
+    condition: qdrant.enabled
+  - name: postgresql
+    version: 0.4.2
+    condition: postgresql.enabled
+  - name: mlflow
+    version: 1.6.2
+    condition: mlflow.enabled
+
+home: https://apps.rancher.io/applications/suse-ai-deployer
+icon: https://www.eni.com/content/dam/enicom/images/loghi/logoEni.svg
+maintainers:
+  - url: https://www.suse.com/
+    name: SUSE LLC
