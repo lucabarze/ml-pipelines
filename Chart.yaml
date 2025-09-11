@@ -2,13 +2,15 @@
 #!BuildTag: charts/suse-ai-deployer:1.0.0-%RELEASE%
 #!BuildTag: charts/suse-ai-deployer:1.0.0
 # annotations:
-#   helm.sh/images: |
-#     # - image: dp.apps.rancher.io/containers/milvus:2.4.6
-#     #   name: milvus
-#     - image: dp.apps.rancher.io/containers/ollama:0.11.4
-#       name: ollama
-#     - image: dp.apps.rancher.io/containers/bci-busybox:15.5
-#       name: bci-busybox
+helm.sh/images: |
+  - image: dp.apps.rancher.io/containers/milvus:2.4.6
+    name: milvus
+  - image: dp.apps.rancher.io/containers/minio:5.4.0
+    name: minio
+  - image: dp.apps.rancher.io/containers/bci-busybox:15.5
+    name: bci-busybox
+  - image: dp.apps.rancher.io/containers/postgresql:0.4.4
+    name: postgresql
 #     # - image: dp.apps.rancher.io/containers/open-webui:0.6.9
 #     #   name: open-webui
 #     # - image: dp.apps.rancher.io/containers/pytorch:2.7.0-nvidia
@@ -55,6 +57,9 @@ dependencies:
   - name: mlflow
     version: 1.6.2
     condition: mlflow.enabled
+  - name: milvus
+    version: 4.2.2
+    condition: mlivus.enabled
 
 home: https://apps.rancher.io/applications/suse-ai-deployer
 icon: https://www.eni.com/content/dam/enicom/images/loghi/logoEni.svg
