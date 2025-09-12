@@ -1,0 +1,1453 @@
+# Services deployed in suse-private-ai namespace with suse-private-ai release name.
+# Global section
+global:
+  imagePullSecrets:
+    - application-collection
+  tls:
+    # options: suse-private-ai, letsEncrypt, secret
+    source: suse-ai
+    issuerName: suse-ai
+
+    # This section to be filled out when using letsEncrypt as the tls source
+    letsEncrypt:
+      environment: staging
+      email: none@example.com
+      ingress:
+        class: ""
+
+# vLLM Configuration section
+
+vllm:
+  enabled: true
+  modelSpec:
+    - imagePullPolicy: IfNotPresent
+      modelURL: microsoft/Phi-3-mini-4k-instruct
+      name: phi3-mini
+      pvcAccessMode:
+        - ReadWriteOnce
+      pvcStorage: 50Gi
+      replicaCount: 1
+      repository: rocm/vllm
+      requestCPU: 4
+      requestGPU: 1
+      requestGPUType: amd.com/gpu
+      requestMemory: 24Gi
+      storageClass: local-path-data
+      tag: latest
+      vllmConfig:
+        dtype: auto
+        extraArgs:
+          - '--served-model-name=phi3-mini'
+          - '--trust-remote-code'
+          - '--download-dir=/models-cache'
+        gpuMemoryUtilization: 0.95
+        maxModelLen: 4096
+
+# Postgresql configuration section     
+postgresql:
+  enabled: true
+  auth:
+    database: mlflow_db
+    existingSecret: ''
+    password: mlflow_password
+    passwordKey: password
+    postgresPassword: ''
+    postgresPasswordKey: postgresPassword
+    postgresUsername: postgres
+    replicationPassword: ''
+    replicationPasswordKey: replicationPassword
+    replicationUsername: replication
+    username: mlflow_user
+  clusterDomain: cluster.local
+  commonAnnotations: {}
+  commonLabels: {}
+  configMap:
+    '*': null
+    enabled: >-
+      {{ and (not .Values.existingConfigMap) (or (not (empty
+      .Values.configuration)) (not (empty .Values.hbaConfiguration)) (not (empty
+      .Values.identConfiguration))) }}
+    '{{ .Values.configurationFile }}': '{{ .Values.configuration }}'
+    '{{ .Values.hbaConfigurationFile }}': '{{ .Values.hbaConfiguration }}'
+    '{{ .Values.identConfigurationFile }}': '{{ .Values.identConfiguration }}'
+  configuration: ''
+  configurationFile: postgresql.conf
+  containerPorts:
+    '*': null
+    metrics: 9187
+    postgresql: 5432
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    enabled: true
+    runAsNonRoot: true
+    runAsUser: 1000
+  existingConfigMap: ''
+  extraManifests: []
+  fullnameOverride: ''
+  global:
+    imagePullSecrets:
+      - application-collection
+    imageRegistry: dp.apps.rancher.io
+    storageClassName: ''
+    cattle:
+      systemProjectId: p-pb7pj
+  hbaConfiguration: ''
+  hbaConfigurationFile: pg_hba.conf
+  headlessService:
+    '*': null
+    annotations: {}
+    clusterIP: None
+    ports:
+      '*': null
+      postgresql: ''
+    publishNotReadyAddresses: true
+    type: ClusterIP
+  identConfiguration: ''
+  identConfigurationFile: pg_ident.conf
+  images:
+    metrics:
+      digest: ''
+      pullPolicy: IfNotPresent
+      registry: dp.apps.rancher.io
+      repository: containers/postgres-exporter
+      tag: 0.17.1-8.4
+    postgresql:
+      digest: ''
+      pullPolicy: IfNotPresent
+      registry: dp.apps.rancher.io
+      repository: containers/postgresql
+      tag: 17.6-7.10
+    volume-permissions:
+      digest: ''
+      pullPolicy: IfNotPresent
+      registry: dp.apps.rancher.io
+      repository: containers/bci-busybox
+      tag: 15.6.37.1
+  metrics:
+    annotations:
+      prometheus.io/port: >-
+        {{ coalesce .Values.containerPorts.metrics .Values.containerPorts.client
+        }}
+      prometheus.io/scrape: 'true'
+    enabled: false
+    prometheusRule:
+      configuration: {}
+      enabled: false
+      labels: {}
+      namespace: ''
+    service:
+      '*': null
+      annotations: {}
+      enabled: true
+      nodePorts:
+        '*': null
+        metrics: ''
+      ports:
+        '*': null
+        metrics: ''
+      type: ClusterIP
+  nameOverride: ''
+  networkPolicy:
+    allowExternalConnections: true
+    egress:
+      allowExternalConnections: true
+      enabled: true
+      extraRules: []
+      namespaceLabels: {}
+      podLabels: {}
+      ports:
+        '*': null
+        postgresql: ''
+    enabled: false
+    ingress:
+      allowExternalConnections: true
+      enabled: true
+      extraRules: []
+      namespaceLabels: {}
+      podLabels: {}
+      ports:
+        '*': null
+        postgresql: ''
+  nodeCount: 1
+  persistence:
+    accessModes:
+      - ReadWriteOnce
+    annotations: {}
+    enabled: true
+    existingClaim: ''
+    labels: {}
+    resources:
+      requests:
+        storage: 10Gi
+    storageClassName: ''
+  podDisruptionBudget:
+    enabled: false
+    maxUnavailable: ''
+    minAvailable: ''
+  podSecurityContext:
+    enabled: true
+  podTemplates:
+    '*': null
+    annotations:
+      kubectl.kubernetes.io/default-container: postgresql
+    containers:
+      metrics:
+        '*': null
+        args: []
+        command: ''
+        enabled: '{{ .Values.metrics.enabled }}'
+        env:
+          DATA_SOURCE_PASS:
+            enabled: true
+            valueFrom:
+              secretKeyRef:
+                key: '{{ .Values.auth.postgresPasswordKey }}'
+                name: >-
+                  {{ coalesce .Values.auth.existingSecret (include
+                  "application-collection.fullName" .) }}
+          DATA_SOURCE_URI: >-
+            {{ printf "127.0.0.1:%d/?sslmode=disable" (int
+            .Values.containerPorts.postgresql) }}
+          DATA_SOURCE_USER: '{{ .Values.auth.postgresUsername }}'
+        envFrom: []
+        image: ''
+        imagePullPolicy: ''
+        livenessProbe:
+          enabled: true
+          failureThreshold: 5
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          successThreshold: 1
+          tcpSocket:
+            port: metrics
+          timeoutSeconds: 5
+        ports: {}
+        readinessProbe:
+          enabled: true
+          failureThreshold: 5
+          httpGet:
+            path: /
+            port: metrics
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 5
+        resources: {}
+        securityContext: {}
+        startupProbe:
+          enabled: false
+          failureThreshold: 10
+          initialDelaySeconds: 0
+          periodSeconds: 10
+          successThreshold: 1
+          tcpSocket:
+            port: metrics
+          timeoutSeconds: 5
+        volumeMounts:
+          certs:
+            enabled: '{{ and .Values.tls.enabled }}'
+            mountPath: /mnt/postgresql/certs
+            readOnly: true
+      postgresql:
+        '*': null
+        args: []
+        command:
+          - /bin/bash
+          - '-ec'
+          - |
+            exec /mnt/postgresql/scripts/postgresql-entrypoint.sh
+        enabled: true
+        env:
+          PGDATA: >-
+            {{
+            .Values.podTemplates.containers.postgresql.volumeMounts.data.mountPath
+            }}/pgdata
+          PGPASSWORD: $(_POSTGRES_PASSWORD)
+          PGPORT: '{{ .Values.containerPorts.postgresql }}'
+          PGSSLCERT:
+            enabled: '{{ and .Values.tls.enabled (not (empty .Values.tls.certFilename)) }}'
+            value: >-
+              {{
+              .Values.podTemplates.containers.postgresql.volumeMounts.certs.mountPath
+              }}/{{ .Values.tls.certFilename }}
+          PGSSLCRL:
+            enabled: '{{ and .Values.tls.enabled (not (empty .Values.tls.crlFilename)) }}'
+            value: >-
+              {{
+              .Values.podTemplates.containers.postgresql.volumeMounts.certs.mountPath
+              }}/{{ .Values.tls.crlFilename }}
+          PGSSLKEY:
+            enabled: '{{ and .Values.tls.enabled (not (empty .Values.tls.keyFilename)) }}'
+            value: >-
+              {{
+              .Values.podTemplates.containers.postgresql.volumeMounts.certs.mountPath
+              }}/{{ .Values.tls.keyFilename }}
+          PGSSLMODE:
+            enabled: '{{ and .Values.tls.enabled (not (empty .Values.tls.sslMode)) }}'
+            value: '{{ .Values.tls.sslMode }}'
+          PGSSLROOTCERT:
+            enabled: >-
+              {{ and .Values.tls.enabled (not (empty .Values.tls.caCertFilename))
+              }}
+            value: >-
+              {{
+              .Values.podTemplates.containers.postgresql.volumeMounts.certs.mountPath
+              }}/{{ .Values.tls.caCertFilename }}
+          PGUSER: '{{ .Values.auth.postgresUsername }}'
+          _FQDN_CLUSTER_PREFIX: >-
+            {{ printf "%s.%s.svc.%s" (include "application-collection.fullName"
+            (dict "suffix" "headless" "context" $)) .Release.Namespace
+            .Values.clusterDomain }}
+          _POSTGRES_CLUSTER_APPLICATION_NAME: walreceiver
+          _POSTGRES_CONF_FILE:
+            enabled: >-
+              {{ and .Values.configMap.enabled (not (empty .Values.configuration))
+              }}
+            value: >-
+              {{
+              .Values.podTemplates.containers.postgresql.volumeMounts.conf.mountPath
+              }}/{{ .Values.configurationFile }}
+          _POSTGRES_HBA_CONF_FILE:
+            enabled: >-
+              {{ and .Values.configMap.enabled (not (empty
+              .Values.hbaConfiguration)) }}
+            value: >-
+              {{
+              .Values.podTemplates.containers.postgresql.volumeMounts.conf.mountPath
+              }}/{{ .Values.hbaConfigurationFile }}
+          _POSTGRES_IDENT_CONF_FILE:
+            enabled: >-
+              {{ and .Values.configMap.enabled (not (empty
+              .Values.identConfiguration)) }}
+            value: >-
+              {{
+              .Values.podTemplates.containers.postgresql.volumeMounts.conf.mountPath
+              }}/{{ .Values.identConfigurationFile }}
+          _POSTGRES_INITIAL_DATABASE:
+            enabled: '{{ not (empty .Values.auth.database) }}'
+            value: '{{ .Values.auth.database }}'
+          _POSTGRES_INITIAL_PASSWORD:
+            enabled: '{{ not (empty .Values.auth.username) }}'
+            valueFrom:
+              secretKeyRef:
+                key: '{{ .Values.auth.passwordKey }}'
+                name: >-
+                  {{ coalesce .Values.auth.existingSecret (include
+                  "application-collection.fullName" .) }}
+          _POSTGRES_INITIAL_USERNAME:
+            enabled: '{{ not (empty .Values.auth.username) }}'
+            value: '{{ .Values.auth.username }}'
+          _POSTGRES_PASSWORD:
+            enabled: true
+            valueFrom:
+              secretKeyRef:
+                key: '{{ .Values.auth.postgresPasswordKey }}'
+                name: >-
+                  {{ coalesce .Values.auth.existingSecret (include
+                  "application-collection.fullName" .) }}
+          _POSTGRES_PRIMARY_HOST: >-
+            {{ printf "%s.%s.%s.svc.%s" (include "application-collection.fullName"
+            (dict "suffix" "0" "context" $)) (include
+            "application-collection.fullName" (dict "suffix" "headless" "context"
+            $)) .Release.Namespace .Values.clusterDomain }}
+          _POSTGRES_REPLICATION_PASSWORD:
+            enabled: true
+            valueFrom:
+              secretKeyRef:
+                key: '{{ .Values.auth.replicationPasswordKey }}'
+                name: >-
+                  {{ coalesce .Values.auth.existingSecret (include
+                  "application-collection.fullName" .) }}
+          _POSTGRES_REPLICATION_USERNAME: '{{ .Values.auth.replicationUsername }}'
+          _POSTGRES_REPLICA_TO_PRIMARY_CLONE_ATTEMPTS: '60'
+          _POSTGRES_REPLICA_TO_PRIMARY_CONNECTION_ATTEMPTS: '30'
+          _POSTGRES_SSL:
+            enabled: '{{ and .Values.tls.enabled }}'
+            value: 'on'
+          _POSTGRES_SSL_CA_FILE:
+            enabled: >-
+              {{ and .Values.tls.enabled (not (empty .Values.tls.caCertFilename))
+              }}
+            value: >-
+              {{
+              .Values.podTemplates.containers.postgresql.volumeMounts.certs.mountPath
+              }}/{{ .Values.tls.caCertFilename }}
+          _POSTGRES_SSL_CERT_FILE:
+            enabled: '{{ and .Values.tls.enabled (not (empty .Values.tls.certFilename)) }}'
+            value: >-
+              {{
+              .Values.podTemplates.containers.postgresql.volumeMounts.certs.mountPath
+              }}/{{ .Values.tls.certFilename }}
+          _POSTGRES_SSL_CRL_FILE:
+            enabled: '{{ and .Values.tls.enabled (not (empty .Values.tls.crlFilename)) }}'
+            value: >-
+              {{
+              .Values.podTemplates.containers.postgresql.volumeMounts.certs.mountPath
+              }}/{{ .Values.tls.crlFilename }}
+          _POSTGRES_SSL_KEY_FILE:
+            enabled: '{{ and .Values.tls.enabled (not (empty .Values.tls.keyFilename)) }}'
+            value: >-
+              {{
+              .Values.podTemplates.containers.postgresql.volumeMounts.certs.mountPath
+              }}/{{ .Values.tls.keyFilename }}
+          _POSTGRES_SSL_MODE:
+            enabled: '{{ and .Values.tls.enabled (not (empty .Values.tls.sslMode)) }}'
+            value: '{{ .Values.tls.sslMode }}'
+        envFrom: []
+        image: ''
+        imagePullPolicy: ''
+        livenessProbe:
+          enabled: true
+          exec:
+            command:
+              - /mnt/postgresql/scripts/postgresql-liveness-check.sh
+          failureThreshold: 5
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 5
+        ports: {}
+        readinessProbe:
+          enabled: true
+          exec:
+            command:
+              - /mnt/postgresql/scripts/postgresql-readiness-check.sh
+          failureThreshold: 5
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 5
+        resources: {}
+        securityContext: {}
+        startupProbe:
+          enabled: false
+          failureThreshold: 10
+          initialDelaySeconds: 0
+          periodSeconds: 10
+          successThreshold: 1
+          tcpSocket:
+            port: postgresql
+          timeoutSeconds: 5
+        volumeMounts:
+          certs:
+            enabled: '{{ .Values.tls.enabled }}'
+            mountPath: /mnt/postgresql/certs
+            readOnly: true
+          conf:
+            enabled: >-
+              {{ and (not .Values.existingConfigMap) (or (not (empty
+              .Values.configuration)) (not (empty .Values.hbaConfiguration)) (not
+              (empty .Values.identConfiguration))) }}
+            mountPath: /mnt/postgresql/conf
+            readOnly: true
+          data:
+            enabled: true
+            mountPath: /mnt/postgresql/data
+          scripts:
+            enabled: true
+            mountPath: /mnt/postgresql/scripts
+            readOnly: true
+    imagePullSecrets:
+      - application-collection
+    initContainers:
+      volume-permissions:
+        '*': null
+        args: []
+        command:
+          - /bin/sh
+          - '-ec'
+          - >
+            chmod -R u+rwX,go-rwx /mnt/postgresql/data
+
+            chown -R {{ .Values.containerSecurityContext.runAsUser }}
+            /mnt/postgresql/data
+        enabled: false
+        env: {}
+        envFrom: []
+        image: ''
+        imagePullPolicy: ''
+        resources: {}
+        securityContext:
+          runAsUser: 0
+        volumeMounts:
+          data:
+            enabled: true
+            mountPath: /mnt/postgresql/data
+    labels: {}
+    securityContext: {}
+    serviceAccountName: ''
+    volumes:
+      certs:
+        enabled: '{{ .Values.tls.enabled }}'
+        secret:
+          defaultMode: 288
+          secretName: '{{ tpl .Values.tls.existingSecret . }}'
+      conf:
+        configMap:
+          defaultMode: 288
+          name: '{{ include "application-collection.fullName" $ }}'
+        enabled: true
+      data:
+        emptyDir:
+          medium: ''
+        enabled: >-
+          {{ and (not .Values.statefulset.volumeClaimTemplates) (not
+          .Values.persistence.enabled) }}
+      scripts:
+        configMap:
+          defaultMode: 360
+          name: >-
+            {{ include "application-collection.fullName" (dict "suffix" "scripts"
+            "context" $) }}
+        enabled: true
+  secret:
+    '*': null
+    enabled: '{{ not .Values.auth.existingSecret }}'
+    '{{ .Values.auth.passwordKey }}':
+      enabled: '{{ not (empty .Values.auth.username) }}'
+      value: '{{ default (randAlphaNum 16) .Values.auth.password }}'
+    '{{ .Values.auth.postgresPasswordKey }}': '{{ default (randAlphaNum 16) .Values.auth.postgresPassword }}'
+    '{{ .Values.auth.replicationPasswordKey }}': '{{ default (randAlphaNum 16) .Values.auth.replicationPassword }}'
+  service:
+    '*': null
+    annotations: {}
+    enabled: true
+    nodePorts:
+      '*': null
+      postgresql: ''
+    ports:
+      '*': null
+      postgresql: ''
+    type: ClusterIP
+  serviceAccount:
+    annotations: {}
+    automountServiceAccountToken: true
+    enabled: false
+    imagePullSecrets:
+      - application-collection
+    labels: {}
+    name: ''
+    secrets: []
+  statefulset:
+    '*': null
+    enabled: true
+    persistentVolumeClaimRetentionPolicy: {}
+    podManagementPolicy: Parallel
+    replicas: ''
+    serviceName: ''
+    template: {}
+    updateStrategy:
+      type: RollingUpdate
+  tls:
+    caCertFilename: ''
+    certFilename: ''
+    crlFilename: ''
+    enabled: false
+    existingSecret: ''
+    keyFilename: ''
+    sslMode: ''
+
+
+
+# Minio Configuration section
+minio:
+  enabled: true
+  additionalAnnotations: {}
+  additionalLabels: {}
+  affinity: {}
+  bucketRoot: ''
+  buckets: []
+  certsPath: /etc/minio/certs/
+  clusterDomain: cluster.local
+  configPathmc: /etc/minio/mc/
+  consoleIngress:
+    annotations: {}
+    enabled: true
+    hosts:
+      - minio.apps.eni.lajoie.de
+    ingressClassName: null
+    labels: {}
+    path: /
+    tls: []
+  consoleService:
+    annotations: {}
+    clusterIP: null
+    externalIPs: []
+    externalTrafficPolicy: Cluster
+    loadBalancerIP: null
+    loadBalancerSourceRanges: []
+    nodePort: 32001
+    port: '9001'
+    type: ClusterIP
+  containerSecurityContext:
+    readOnlyRootFilesystem: false
+  customCommandJob:
+    exitCommand: ''
+    extraVolumeMounts: []
+    extraVolumes: []
+    resources:
+      requests:
+        memory: 128Mi
+    securityContext:
+      enabled: false
+      runAsGroup: 1000
+      runAsUser: 1000
+  customCommands: null
+  deploymentUpdate:
+    maxSurge: 100%
+    maxUnavailable: 0
+    type: RollingUpdate
+  drivesPerNode: 1
+  environment: null
+  etcd:
+    clientCert: ''
+    clientCertKey: ''
+    corednsPathPrefix: ''
+    endpoints: []
+    pathPrefix: ''
+  existingSecret: ''
+  extraArgs: []
+  extraContainers: []
+  extraSecret: null
+  extraVolumeMounts: []
+  extraVolumes: []
+  fullnameOverride: ''
+  global:
+    imagePullSecrets:
+      - application-collection
+    imageRegistry: dp.apps.rancher.io
+    cattle:
+      systemProjectId: p-pb7pj
+  ignoreChartChecksums: false
+  image:
+    pullPolicy: IfNotPresent
+    registry: dp.apps.rancher.io
+    repository: containers/minio
+    tag: 0.20241218.131544
+  imagePullSecrets:
+    - application-collection
+  ingress:
+    annotations: {}
+    enabled: false
+    hosts:
+      - minio-example.local
+    ingressClassName: null
+    labels: {}
+    path: /
+    tls: []
+  makeBucketJob:
+    exitCommand: ''
+    resources:
+      requests:
+        memory: 128Mi
+    securityContext:
+      enabled: false
+      runAsGroup: 1000
+      runAsUser: 1000
+  makePolicyJob:
+    exitCommand: ''
+    resources:
+      requests:
+        memory: 128Mi
+    securityContext:
+      enabled: false
+      runAsGroup: 1000
+      runAsUser: 1000
+  makeServiceAccountJob:
+    exitCommand: ''
+    resources:
+      requests:
+        memory: 128Mi
+    securityContext:
+      enabled: false
+      runAsGroup: 1000
+      runAsUser: 1000
+  makeUserJob:
+    exitCommand: ''
+    resources:
+      requests:
+        memory: 128Mi
+    securityContext:
+      enabled: false
+      runAsGroup: 1000
+      runAsUser: 1000
+  mcImage:
+    pullPolicy: IfNotPresent
+    registry: dp.apps.rancher.io
+    repository: containers/mc
+    tag: 0.20250312.172924
+  metrics:
+    serviceMonitor:
+      additionalLabels: {}
+      annotations: {}
+      enabled: false
+      includeNode: false
+      interval: null
+      namespace: null
+      public: true
+      relabelConfigs: {}
+      relabelConfigsCluster: {}
+      scrapeTimeout: null
+  minioAPIPort: '9000'
+  minioConsolePort: '9001'
+  mode: standalone
+  mountPath: /export
+  nameOverride: ''
+  networkPolicy:
+    allowExternal: true
+    egressEntities:
+      - kube-apiserver
+    enabled: false
+    flavor: kubernetes
+  nodeSelector: {}
+  oidc:
+    claimName: policy
+    claimPrefix: ''
+    clientId: minio
+    clientSecret: ''
+    comment: ''
+    configUrl: https://identity-provider-url/.well-known/openid-configuration
+    displayName: ''
+    enabled: false
+    existingClientIdKey: ''
+    existingClientSecretKey: ''
+    existingClientSecretName: ''
+    redirectUri: https://console-endpoint-url/oauth_callback
+    scopes: openid,profile,email
+  persistence:
+    accessMode: ReadWriteOnce
+    annotations: {}
+    enabled: true
+    existingClaim: ''
+    size: 5Gi
+    storageClass: local-path
+    subPath: ''
+    volumeName: ''
+  podAnnotations: {}
+  podDisruptionBudget:
+    enabled: false
+    maxUnavailable: 1
+  podLabels: {}
+  policies: []
+  pools: 1
+  postJob:
+    affinity: {}
+    annotations: {}
+    nodeSelector: {}
+    podAnnotations: {}
+    securityContext:
+      enabled: false
+      fsGroup: 1000
+      runAsGroup: 1000
+      runAsUser: 1000
+    tolerations: []
+  priorityClassName: ''
+  replicas: 16
+  resources:
+    requests:
+      memory: 512Mi
+  rootPassword: admin123
+  rootUser: admin
+  runtimeClassName: ''
+  securityContext:
+    enabled: true
+    fsGroup: 1000
+    fsGroupChangePolicy: OnRootMismatch
+    runAsGroup: 1000
+    runAsUser: 1000
+  service:
+    annotations: {}
+    clusterIP: null
+    externalIPs: []
+    externalTrafficPolicy: Cluster
+    loadBalancerIP: null
+    loadBalancerSourceRanges: []
+    nodePort: 32000
+    port: '9000'
+    type: ClusterIP
+  serviceAccount:
+    create: true
+    name: minio-sa
+  statefulSetUpdate:
+    updateStrategy: RollingUpdate
+  svcaccts: []
+  tls:
+    certSecret: ''
+    enabled: false
+    privateKey: private.key
+    publicCrt: public.crt
+  tolerations: []
+  topologySpreadConstraints: []
+  trustedCertsSecret: ''
+  users:
+    - accessKey: console
+      policy: consoleAdmin
+      secretKey: console123
+
+
+# Milvus configuration
+milvus:
+  enabled: true
+  affinity: {}
+  annotations: {}
+  attu:
+    enabled: false
+    ingress:
+      annotations: {}
+      enabled: false
+      hosts:
+        - milvus-attu.local
+      ingressClassName: ''
+      labels: {}
+      tls: []
+    name: attu
+    podLabels: {}
+    resources: {}
+    service:
+      annotations: {}
+      labels: {}
+      port: 3000
+      type: ClusterIP
+  cluster:
+    enabled: false
+  customConfigMap: ''
+  dataCoordinator:
+    activeStandby:
+      enabled: false
+    affinity: {}
+    enabled: false
+    extraEnv: []
+    heaptrack:
+      enabled: false
+    nodeSelector: {}
+    profiling:
+      enabled: false
+    replicas: 1
+    resources: {}
+    service:
+      annotations: {}
+      clusterIP: ''
+      labels: {}
+      port: 13333
+    strategy: {}
+    tolerations: []
+  dataNode:
+    affinity: {}
+    enabled: false
+    extraEnv: []
+    heaptrack:
+      enabled: false
+    nodeSelector: {}
+    profiling:
+      enabled: false
+    replicas: 1
+    resources: {}
+    strategy: {}
+    tolerations: []
+  etcd:
+    auth:
+      rbac:
+        enabled: false
+    enabled: true
+    name: etcd
+    persistence:
+      accessModes:
+        - ReadWriteOnce
+      enabled: true
+      storageClassName: null
+    replicaCount: 1
+    service:
+      annotations: {}
+      enabled: true
+      nodePorts:
+        client: '2379'
+        peer: '2380'
+      ports:
+        client: '2379'
+        peer: '2380'
+      type: ClusterIP
+  externalEtcd:
+    enabled: false
+    endpoints:
+      - localhost:2379
+  externalGcs:
+    bucketName: ''
+  externalKafka:
+    brokerList: localhost:9092
+    enabled: false
+    sasl:
+      mechanisms: PLAIN
+      password: ''
+      username: ''
+    securityProtocol: SASL_SSL
+  externalPulsar:
+    authParams: ''
+    authPlugin: ''
+    enabled: false
+    host: localhost
+    maxMessageSize: '5242880'
+    namespace: default
+    port: 6650
+    tenant: public
+  externalS3:
+    accessKey: admin
+    bucketName: milvus
+    cloudProvider: aws
+    enabled: true
+    host: minio.minio
+    iamEndpoint: ''
+    port: 9000
+    region: ''
+    rootPath: ''
+    secretKey: admin123
+    useIAM: false
+    useSSL: false
+    useVirtualHost: false
+  extraConfigFiles:
+    user.yaml: |+
+      #    For example enable rest http for milvus proxy
+      #    proxy:
+      #      http:
+      #        enabled: true
+      #      maxUserNum: 100
+      #      maxRoleNum: 10
+      ##  Enable tlsMode and set the tls cert and key
+      #  tls:
+      #    serverPemPath: /etc/milvus/certs/tls.crt
+      #    serverKeyPath: /etc/milvus/certs/tls.key
+      #   common:
+      #     security:
+      #       tlsMode: 1
+
+  fullnameOverride: ''
+  global:
+    imagePullSecrets:
+      - application-collection
+    imageRegistry: dp.apps.rancher.io
+    cattle:
+      systemProjectId: p-pb7pj
+  image:
+    all:
+      pullPolicy: IfNotPresent
+      registry: dp.apps.rancher.io
+      repository: containers/milvus
+      tag: 2.4.6
+  indexCoordinator:
+    activeStandby:
+      enabled: false
+    affinity: {}
+    enabled: false
+    extraEnv: []
+    heaptrack:
+      enabled: false
+    nodeSelector: {}
+    profiling:
+      enabled: false
+    replicas: 1
+    resources: {}
+    service:
+      annotations: {}
+      clusterIP: ''
+      labels: {}
+      port: 31000
+    strategy: {}
+    tolerations: []
+  indexNode:
+    affinity: {}
+    disk:
+      enabled: true
+      size:
+        enabled: false
+    enabled: false
+    extraEnv: []
+    heaptrack:
+      enabled: false
+    nodeSelector: {}
+    profiling:
+      enabled: false
+    replicas: 1
+    resources: {}
+    strategy: {}
+    tolerations: []
+  ingress:
+    annotations:
+      nginx.ingress.kubernetes.io/backend-protocol: GRPC
+      nginx.ingress.kubernetes.io/listen-ports-ssl: '[19530]'
+      nginx.ingress.kubernetes.io/proxy-body-size: 4m
+      nginx.ingress.kubernetes.io/ssl-redirect: 'true'
+    enabled: true
+    ingressClassName: ''
+    labels: {}
+    rules:
+      - host: milvus.apps.eni.lajoie.de
+        path: /
+        pathType: Prefix
+    tls: []
+  kafka:
+    broker:
+      enabled: true
+    cluster:
+      listeners:
+        client:
+          protocol: PLAINTEXT
+        controller:
+          protocol: PLAINTEXT
+    containerPorts:
+      client: 9092
+    enabled: false
+    name: kafka
+    persistence:
+      accessModes:
+        - ReadWriteOnce
+      annotations: {}
+      enabled: true
+      existingClaim: ''
+      labels: {}
+      resources:
+        requests:
+          storage: 8Gi
+      storageClassName: ''
+    replicaCount: 3
+  labels: {}
+  livenessProbe:
+    enabled: true
+    failureThreshold: 5
+    initialDelaySeconds: 90
+    periodSeconds: 30
+    successThreshold: 1
+    timeoutSeconds: 5
+  log:
+    file:
+      maxAge: 10
+      maxBackups: 20
+      maxSize: 300
+    format: text
+    level: info
+    persistence:
+      annotations:
+        helm.sh/resource-policy: keep
+      enabled: false
+      mountPath: /milvus/logs
+      persistentVolumeClaim:
+        accessModes: ReadWriteMany
+        existingClaim: ''
+        size: 10Gi
+        storageClass: null
+        subPath: ''
+  metrics:
+    enabled: true
+    serviceMonitor:
+      additionalLabels: {}
+      enabled: false
+      interval: 30s
+      scrapeTimeout: 10s
+  minio:
+    enabled: false
+    existingSecret: ''
+    mode: distributed
+    name: minio
+    persistence:
+      accessMode: ReadWriteOnce
+      enabled: true
+      existingClaim: ''
+      size: 500Gi
+      storageClass: null
+    podDisruptionBudget:
+      enabled: false
+    resources:
+      requests:
+        memory: 2Gi
+    rootPassword: minioadmin
+    rootUser: minioadmin
+    service:
+      port: 9000
+      type: ClusterIP
+  mixCoordinator:
+    activeStandby:
+      enabled: false
+    affinity: {}
+    enabled: false
+    extraEnv: []
+    heaptrack:
+      enabled: false
+    nodeSelector: {}
+    profiling:
+      enabled: false
+    replicas: 1
+    resources: {}
+    service:
+      annotations: {}
+      clusterIP: ''
+      labels: {}
+    strategy: {}
+    tolerations: []
+  nameOverride: ''
+  nodeSelector: {}
+  proxy:
+    affinity: {}
+    enabled: true
+    extraEnv: []
+    heaptrack:
+      enabled: false
+    http:
+      debugMode:
+        enabled: false
+      enabled: true
+    nodeSelector: {}
+    profiling:
+      enabled: false
+    replicas: 1
+    resources: {}
+    strategy: {}
+    tls:
+      enabled: false
+    tolerations: []
+  queryCoordinator:
+    activeStandby:
+      enabled: false
+    affinity: {}
+    enabled: false
+    extraEnv: []
+    heaptrack:
+      enabled: false
+    nodeSelector: {}
+    profiling:
+      enabled: false
+    replicas: 1
+    resources: {}
+    service:
+      annotations: {}
+      clusterIP: ''
+      labels: {}
+      port: 19531
+    strategy: {}
+    tolerations: []
+  queryNode:
+    affinity: {}
+    disk:
+      enabled: true
+      size:
+        enabled: false
+    enabled: false
+    extraEnv: []
+    heaptrack:
+      enabled: false
+    nodeSelector: {}
+    profiling:
+      enabled: false
+    replicas: 1
+    resources: {}
+    strategy: {}
+    tolerations: []
+  readinessProbe:
+    enabled: true
+    failureThreshold: 5
+    initialDelaySeconds: 90
+    periodSeconds: 10
+    successThreshold: 1
+    timeoutSeconds: 5
+  rootCoordinator:
+    activeStandby:
+      enabled: false
+    affinity: {}
+    enabled: false
+    extraEnv: []
+    heaptrack:
+      enabled: false
+    nodeSelector: {}
+    profiling:
+      enabled: false
+    replicas: 1
+    resources: {}
+    service:
+      annotations: {}
+      clusterIP: ''
+      labels: {}
+      port: 53100
+    strategy: {}
+    tolerations: []
+  service:
+    annotations: {}
+    externalIPs: []
+    labels: {}
+    loadBalancerSourceRanges:
+      - 0.0.0.0/0
+    nodePort: ''
+    port: 19530
+    portName: milvus
+    type: ClusterIP
+  serviceAccount:
+    annotations: null
+    create: false
+    labels: null
+    name: null
+  standalone:
+    affinity: {}
+    disk:
+      enabled: true
+      size:
+        enabled: false
+    extraEnv: []
+    heaptrack:
+      enabled: false
+    messageQueue: rocksmq
+    nodeSelector: {}
+    persistence:
+      annotations:
+        helm.sh/resource-policy: keep
+      enabled: true
+      mountPath: /var/lib/milvus
+      persistentVolumeClaim:
+        accessModes: ReadWriteOnce
+        existingClaim: ''
+        size: 50Gi
+        storageClass: null
+        subPath: ''
+    profiling:
+      enabled: false
+    replicas: 1
+    resources: {}
+    tolerations: []
+  tolerations: []
+
+# Qdrant Configuration section
+
+qdrant:
+  enabled: false
+
+# MlFlow Configuration
+
+mlflow:
+  enabled: true
+  affinity: {}
+  artifactRoot:
+    azureBlob:
+      accessKey: ''
+      connectionString: ''
+      container: ''
+      enabled: false
+      path: ''
+      storageAccount: ''
+    defaultArtifactRoot: ./mlruns
+    defaultArtifactsDestination: ./mlartifacts
+    gcs:
+      bucket: ''
+      enabled: false
+      path: ''
+    proxiedArtifactStorage: true
+    s3:
+      awsAccessKeyId: admin
+      awsSecretAccessKey: admin123
+      bucket: mlflow-artifacts
+      enabled: true
+      existingSecret:
+        keyOfAccessKeyId: ''
+        keyOfSecretAccessKey: ''
+        name: ''
+      path: ''
+  auth:
+    adminPassword: ''
+    adminUsername: ''
+    appName: basic-auth
+    authorizationFunction: mlflow.server.auth:authenticate_request_basic_auth
+    configFile: basic_auth.ini
+    configPath: /etc/mlflow/auth/
+    defaultPermission: READ
+    enabled: false
+    existingAdminSecret:
+      name: ''
+      passwordKey: password
+      usernameKey: username
+    postgres:
+      database: ''
+      driver: ''
+      enabled: false
+      existingSecret:
+        name: ''
+        passwordKey: password
+        usernameKey: username
+      host: ''
+      password: ''
+      port: 5432
+      user: ''
+    sqliteFile: basic_auth.db
+    sqliteFullPath: ''
+  autoscaling:
+    behavior: {}
+    enabled: false
+    maxReplicas: 5
+    metrics:
+      - resource:
+          name: memory
+          target:
+            averageUtilization: 80
+            type: Utilization
+        type: Resource
+      - resource:
+          name: cpu
+          target:
+            averageUtilization: 80
+            type: Utilization
+        type: Resource
+    minReplicas: 1
+  backendStore:
+    databaseConnectionCheck: false
+    databaseMigration: true
+    defaultSqlitePath: ':memory:'
+    existingDatabaseSecret:
+      name: ''
+      passwordKey: password
+      usernameKey: username
+    mysql:
+      database: ''
+      driver: pymysql
+      enabled: false
+      host: ''
+      password: ''
+      port: 3306
+      user: ''
+    postgres:
+      database: mlflow_db
+      driver: ''
+      enabled: true
+      host: postgresql-0-1756932477
+      password: mlflow_password
+      port: 5432
+      user: mlflow_user
+  extraArgs: {}
+  extraContainers: []
+  extraEnvVars:
+    AWS_ACCESS_KEY_ID: admin
+    AWS_SECRET_ACCESS_KEY: admin123
+    MLFLOW_S3_ENDPOINT_URL: http://minio.minio:9000
+    MLFLOW_S3_IGNORE_TLS: 'true'
+  extraFlags: []
+  extraPodLabels: {}
+  extraSecretNamesForEnvFrom: []
+  extraVolumeMounts: []
+  extraVolumes: []
+  flaskServerSecretKey: ''
+  fullnameOverride: ''
+  image:
+    pullPolicy: IfNotPresent
+    repository: burakince/mlflow
+    tag: ''
+  imagePullSecrets: []
+  ingress:
+    annotations: {}
+    className: ''
+    enabled: true
+    hosts:
+      - host: mlflow.apps.eni.lajoie.de
+        paths:
+          - path: /
+            pathType: ImplementationSpecific
+    tls: []
+  initContainers: []
+  ldapAuth:
+    adminGroupDistinguishedName: ''
+    enabled: false
+    encodedTrustedCACertificate: ''
+    externalSecretForTrustedCACertificate: ''
+    groupAttribute: dn
+    groupAttributeKey: ''
+    lookupBind: ''
+    searchBaseDistinguishedName: ''
+    searchFilter: (&(objectclass=groupOfUniqueNames)(uniquemember=%s))
+    tlsVerification: required
+    uri: ''
+    userGroupDistinguishedName: ''
+  livenessProbe:
+    failureThreshold: 5
+    initialDelaySeconds: 10
+    periodSeconds: 30
+    timeoutSeconds: 3
+  log:
+    enabled: true
+    level: info
+  mysql:
+    architecture: standalone
+    auth:
+      database: mlflow
+      password: ''
+      username: ''
+    enabled: false
+    primary:
+      persistence:
+        enabled: true
+        existingClaim: ''
+      service:
+        ports:
+          mysql: 3306
+  nameOverride: ''
+  nodeSelector: {}
+  podAnnotations: {}
+  podSecurityContext:
+    fsGroup: 1001
+    fsGroupChangePolicy: OnRootMismatch
+  postgresql:
+    architecture: standalone
+    auth:
+      database: mlflow
+      password: ''
+      username: ''
+    enabled: false
+    primary:
+      persistence:
+        enabled: true
+        existingClaim: ''
+      service:
+        ports:
+          postgresql: 5432
+  readinessProbe:
+    failureThreshold: 5
+    initialDelaySeconds: 10
+    periodSeconds: 30
+    timeoutSeconds: 3
+  replicaCount: 1
+  resources: {}
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    privileged: false
+    readOnlyRootFilesystem: false
+    runAsGroup: 1001
+    runAsNonRoot: true
+    runAsUser: 1001
+  service:
+    annotations: {}
+    containerPort: 5000
+    containerPortName: mlflow
+    enabled: true
+    name: http
+    port: 80
+    type: ClusterIP
+  serviceAccount:
+    annotations: {}
+    automount: true
+    create: true
+    name: ''
+  serviceMonitor:
+    enabled: false
+    interval: 30s
+    labels:
+      release: prometheus
+    metricRelabelings: []
+    namespace: monitoring
+    targetLabels: []
+    telemetryPath: /metrics
+    timeout: 10s
+    useServicePort: false
+  strategy:
+    rollingUpdate:
+      maxSurge: 100%
+      maxUnavailable: 0
+    type: RollingUpdate
+  telemetry:
+    enabled: false
+  tolerations: []
+
+
+

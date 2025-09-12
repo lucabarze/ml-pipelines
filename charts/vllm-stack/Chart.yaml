@@ -1,0 +1,7 @@
+apiVersion: v2
+description: The stack deployment of vLLM
+maintainers:
+- name: apostac
+name: vllm-stack
+type: application
+version: 0.1.7

@@ -1,0 +1,97 @@
+# Services deployed in suse-private-ai namespace with suse-private-ai release name.
+# Global section
+global:
+  imagePullSecrets:
+    - application-collection
+  tls:
+    # options: suse-private-ai, letsEncrypt, secret
+    source: suse-private-ai
+    issuerName: suse-private-ai
+
+    # This section to be filled out when using letsEncrypt as the tls source
+    letsEncrypt:
+      environment: staging
+      email: none@example.com
+      ingress:
+        class: ""
+
+milvus:
+  enabled: false
+minio:
+  enabled: true
+  mode: standalone
+  ## TLS Settings for MinIO
+  tls:
+    enabled: false
+  persistence:
+    enabled: true
+    size: 5Gi
+    resources:
+      requests:
+        memory: 512Mi
+  rootUser: admin
+  rootPassword: admin123
+  existingSecret: ""
+  accessKey: "mZNezGKCWJXFVmL84LCP"
+  secretKey: "r6lPIWiniaZqWFzpihcFlNrlWkodtjzPujYzItVw"
+  buckets:
+    - name: mlflow
+      policy: none
+      purge: none
+postgresql:
+  enabled: true
+  auth:
+    database: mlflow
+    username: mlflow
+    password: mlflow
+mlflow:
+  enabled: true
+  spec:
+    containers:
+    - name: mlflow-server
+      # image: dp.apps.rancher.io/containers/mlflow:3.3.2
+      image: ghcr.io/mlflow/mlflow:v3.3.2
+      command: ["/bin/sh"]
+      args: ["-c", "apt-get update && apt-get install -y build-essential libpq-dev && pip install psycopg2 boto3 && mlflow db upgrade postgresql://mlflow:mlflow@suseai-postgresql.suseai.svc.cluster.local:5432/mlflow && mlflow server --backend-store-uri postgresql://mlflow:mlflow@suseai-postgresql.suseai.svc.cluster.local:5432/mlflow --host 0.0.0.0 --serve-artifacts --artifacts-destination s3://mlflow"]         
+      env:
+        - name: AWS_ACCESS_KEY_ID
+          value: mZNezGKCWJXFVmL84LCP
+        - name: AWS_SECRET_ACCESS_KEY
+          value: r6lPIWiniaZqWFzpihcFlNrlWkodtjzPujYzItVw
+        - name: MLFLOW_S3_ENDPOINT_URL
+          value: http://suseai-minio.suseai.svc.cluster.local:9000
+        - name: MLFLOW_S3_IGNORE_TLS
+          value: "true"
+      livenessProbe:
+        exec:
+          command:
+            - curl
+            - -f
+            - http://localhost:5000/
+        failureThreshold: 3
+        periodSeconds: 30
+        timeoutSeconds: 10
+      ports:
+        - containerPort: 5000
+          protocol: TCP
+    restartPolicy: Always
+vllm:
+  enabled: false
+  servingEngineSpec:
+    runtimeClassName: ""
+    modelSpec:
+    - name: "opt125m"
+      repository: "vllm/vllm-openai"
+      tag: "latest"
+      modelURL: "facebook/opt-125m"
+
+      replicaCount: 1
+
+      # requestCPU: 6
+      # requestMemory: "16Gi"
+      requestGPU: 0
+      # Optional resource limits - if not specified, only GPU will have a limit
+      # limitCPU: "8"
+      # limitMemory: "32Gi"
+qdrant:
+  enabled: false
