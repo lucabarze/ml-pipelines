@@ -1,18 +1,18 @@
 questions:
 - variable: vllm.modelSpec.requestGPUType
-  default: true
+  default: amd.com/gpu
   description:  Configure vLLM resources
   type: string
   label: GPU devices
   group: "vLLM Configuration"
 - variable: vllm.modelSpec.requestGPU
-  default: true
+  default: 1
   description:  Configure vLLM resources
   type: int
   label: GPU devices
   group: "vLLM Configuration"
 - variable: vllm.modelSpec.requestCPU
-  default: true
+  default: 4
   description:  Configure vLLM resources
   type: int
   label: CPU devices
