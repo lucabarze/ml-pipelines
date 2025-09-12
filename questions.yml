@@ -1,0 +1,19 @@
+questions:
+- variable: vllm.modelSpec.requestGPUType
+  default: true
+  description:  Configure vLLM resources
+  type: string
+  label: GPU devices
+  group: "vLLM Configuration"
+- variable: vllm.modelSpec.requestGPU
+  default: true
+  description:  Configure vLLM resources
+  type: int
+  label: GPU devices
+  group: "vLLM Configuration"
+- variable: vllm.modelSpec.requestCPU
+  default: true
+  description:  Configure vLLM resources
+  type: int
+  label: CPU devices
+  group: "vLLM Configuration"
